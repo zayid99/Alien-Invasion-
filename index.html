@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Alien Invasion</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Play a gray alien commander: abduct humans, cows and cars, build an army on your mothership and conquer every city on Earth.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&family=Share+Tech+Mono&display=swap">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-humans" viewBox="0 0 24 24"><circle cx="12" cy="6" r="3.4"/><path d="M5.5 21v-5c0-3.2 2.8-5.6 6.5-5.6s6.5 2.4 6.5 5.6v5z"/></symbol>
+    <symbol id="i-biomass" viewBox="0 0 24 24"><path d="M7 2.5c0 5.5 10 5.5 10 9.5s-10 4-10 9.5M17 2.5c0 5.5-10 5.5-10 9.5s10 4 10 9.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.6 6.5h6.8M8.6 17.5h6.8M10 12h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-metal" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 8.6a3.4 3.4 0 1 0 0 6.8a3.4 3.4 0 1 0 0-6.8zm8.6 4.5v-2.2l-2.4-.5a6.8 6.8 0 0 0-.7-1.7l1.3-2.1-1.6-1.6-2.1 1.3a6.8 6.8 0 0 0-1.7-.7l-.5-2.4h-2.2l-.5 2.4a6.8 6.8 0 0 0-1.7.7L6.4 5l-1.6 1.6 1.3 2.1a6.8 6.8 0 0 0-.7 1.7l-2.4.5v2.2l2.4.5c.2.6.4 1.2.7 1.7l-1.3 2.1L6.4 19l2.1-1.3c.5.3 1.1.5 1.7.7l.5 2.4h2.2l.5-2.4c.6-.2 1.2-.4 1.7-.7l2.1 1.3 1.6-1.6-1.3-2.1c.3-.5.5-1.1.7-1.7z"/></symbol>
+  </defs>
+</svg>
+
+<canvas id="game" tabindex="0" aria-label="Game view"></canvas>
+
+<!-- ================= HUD ================= -->
+<div id="hud" hidden>
+  <div class="hud-top">
+    <div class="meters">
+      <div class="meter" id="m-shield"><span>Shield</span><div class="bar"><i></i></div><b class="val">100</b></div>
+      <div class="meter" id="m-cargo"><span>Cargo</span><div class="bar"><i></i></div><b class="val">0/10</b></div>
+      <div class="meter" id="m-boost"><span>Boost</span><div class="bar"><i></i></div><b class="val"></b></div>
+    </div>
+    <div class="center-top">
+      <div id="mode-label">Night 1</div>
+      <div id="timer">2:30</div>
+      <div id="alert" title="How alarmed Earth is"><span>Alert</span><i></i><i></i><i></i><i></i><i></i></div>
+      <div id="objective"></div>
+    </div>
+    <div class="res-wrap">
+      <div id="res">
+        <div class="r humans" title="Humans"><em></em><svg class="ico"><use href="#i-humans"/></svg><b>0</b></div>
+        <div class="r biomass" title="Biomass"><em></em><svg class="ico"><use href="#i-biomass"/></svg><b>0</b></div>
+        <div class="r metal" title="Metal"><em></em><svg class="ico"><use href="#i-metal"/></svg><b>0</b></div>
+      </div>
+      <button id="pause-btn" aria-label="Pause">II</button>
+    </div>
+  </div>
+  <div id="toasts" aria-live="polite"></div>
+  <div id="comm" hidden><div class="face" id="comm-face"></div><p id="comm-text"></p></div>
+  <canvas id="minimap" width="300" height="300" aria-label="Radar"></canvas>
+  <div id="hint"></div>
+  <div id="deploy" hidden></div>
+  <div id="float-layer"></div>
+</div>
+
+<!-- ================= TOUCH CONTROLS ================= -->
+<div id="touch" hidden>
+  <div id="joy"><div id="joy-knob"></div></div>
+  <div id="tbtns">
+    <button id="t-boost">Boost</button>
+    <button id="t-send">Send</button>
+    <button id="t-zap">Zap</button>
+    <button id="t-beam">Beam</button>
+  </div>
+</div>
+
+<!-- ================= TITLE ================= -->
+<section id="scr-title" class="screen" hidden>
+  <div class="logo">
+    <div class="eyebrow">A Gray Empire production</div>
+    <h1>Alien<span>Invasion</span></h1>
+  </div>
+  <p class="tagline">You are a gray alien commander. <b>Beam up</b> humans, cows and cars. <b>Build</b> an army. <b>Conquer</b> every city on Earth.</p>
+  <div class="row">
+    <button class="btn primary" id="btn-continue" hidden>Continue</button>
+    <button class="btn primary" id="btn-new">New game</button>
+    <button class="btn" id="btn-howto">How to play</button>
+  </div>
+  <p class="fine">Keyboard + mouse or touch · Sound on recommended · <kbd style="font-family:var(--font-mono)">M</kbd> mutes</p>
+</section>
+
+<div id="confirm-new" hidden>
+  <div class="card" style="display:grid;gap:14px;text-align:center">
+    <h2>Start over?</h2>
+    <p>Your saved invasion (army, upgrades and resources) will be erased.</p>
+    <div class="row"><button class="btn danger" id="btn-confirm-yes">Erase and start</button><button class="btn" id="btn-confirm-no">Keep my save</button></div>
+  </div>
+</div>
+
+<!-- ================= HOW TO PLAY ================= -->
+<section id="scr-howto" class="screen dim" hidden>
+  <div class="card">
+    <div class="eyebrow">Flight manual</div>
+    <h2>How to play</h2>
+    <ol class="steps">
+      <li><span><b>Pick a target on Earth.</b> Spin the globe and choose a glowing mission site in a region you have unlocked.</span></li>
+      <li><span><b>Abduct.</b> Each night you have 2½ minutes. Hold the tractor beam over people, animals and vehicles to pull them into your saucer.</span></li>
+      <li><span><b>Bank your cargo.</b> The hold fills up. Send cargo to the mothership before your shield breaks, or you lose it.</span></li>
+      <li><span><b>Build.</b> On the mothership, spend humans, biomass and metal on army units and saucer upgrades.</span></li>
+      <li><span><b>Invade cities.</b> Pick a city on the globe and launch an invasion. Destroy its shield pylons, then its defense HQ. Captured cities pay you every day.</span></li>
+    </ol>
+    <div class="keys">
+      <kbd>W A S D</kbd><span>Fly (arrow keys work too)</span>
+      <kbd>Space</kbd><span>Hold for tractor beam</span>
+      <kbd>Mouse</kbd><span>Hold left button to fire the stun ray at the cursor</span>
+      <kbd>Shift</kbd><span>Boost</span>
+      <kbd>R</kbd><span>Send cargo to the mothership</span>
+      <kbd>Q / E</kbd><span>Turn the camera · wheel zooms</span>
+      <kbd>1 2 3 4</kbd><span>During the invasion: drop reinforcements</span>
+      <kbd>P / Esc</kbd><span>Pause</span>
+    </div>
+    <p class="fine" style="margin-top:14px;text-align:left">The stun ray never kills. The Empire needs humans alive. Stunned people and wrecked vehicles are easy to beam up.</p>
+    <div class="row" style="margin-top:16px"><button class="btn primary" id="btn-howto-back">Got it</button></div>
+  </div>
+</section>
+
+<!-- ================= BRIEFING ================= -->
+<section id="scr-briefing" class="screen dim" hidden>
+  <div class="card">
+    <div class="eyebrow">Incoming transmission · High Council of the Gray Empire</div>
+    <div class="brief" style="margin-top:14px">
+      <div class="face" id="brief-face"></div>
+      <p id="brief-text"></p>
+    </div>
+    <div class="row" style="margin-top:18px;justify-content:flex-end"><button class="btn" id="btn-brief-skip">Skip</button><button class="btn primary" id="btn-accept">Start training</button></div>
+  </div>
+</section>
+
+<!-- ================= NIGHT SUMMARY ================= -->
+<section id="scr-summary" class="screen dim" hidden>
+  <div class="card">
+    <div class="eyebrow" id="sum-eyebrow">Report</div>
+    <h2 id="sum-title">Night complete</h2>
+    <dl class="stats" id="sum-body"></dl>
+    <p class="fine" id="sum-note" style="text-align:left"></p>
+    <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn" id="btn-sum-ms">Mothership</button><button class="btn primary" id="btn-sum-next">Back to Earth</button></div>
+  </div>
+</section>
+
+<!-- ================= MOTHERSHIP ================= -->
+<section id="scr-mothership" class="screen" hidden>
+  <div class="ms-head">
+    <div>
+      <div class="eyebrow" id="ms-sub">High orbit · Day 1</div>
+      <h2>Mothership</h2>
+    </div>
+    <div class="wallet" id="ms-wallet"></div>
+  </div>
+  <div class="ms-grid">
+    <div class="ms-panel">
+      <header><h3>Build your army</h3><p>Units fight on their own during the invasion</p></header>
+      <div id="ms-army" style="display:grid;gap:8px"></div>
+    </div>
+    <div class="ms-panel">
+      <header><h3>Upgrade your saucer</h3><p>Max level 5</p></header>
+      <div id="ms-upgrades" style="display:grid;gap:8px"></div>
+    </div>
+  </div>
+  <div class="ms-panel war">
+    <div class="war-info" style="display:grid;gap:4px;min-width:0">
+      <header style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline"><h3>War room</h3><p id="ms-earth-note" style="color:var(--dim);font-size:13px">Earth's defenses grow every night you wait</p></header>
+      <div class="power">
+        <div class="lane us"><span>Your army</span><div class="track"><i id="pw-us"></i></div><b id="pw-us-n">0</b></div>
+        <div class="lane them"><span id="pw-them-label">Next city</span><div class="track"><i id="pw-them"></i></div><b id="pw-them-n">0</b></div>
+      </div>
+      <p id="ms-verdict"></p>
+    </div>
+    <div class="row war-acts">
+      <button class="btn" id="btn-ms-menu">Save &amp; quit</button>
+      <button class="btn primary" id="btn-ms-earth">Back to Earth</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PAUSE ================= -->
+<section id="scr-pause" class="screen dim" hidden>
+  <div class="card" style="display:grid;gap:14px;justify-items:center;text-align:center;width:min(420px,100%)">
+    <h2>Paused</h2>
+    <button class="btn primary" id="btn-resume">Resume</button>
+    <div class="row">
+      <button class="btn" id="btn-sound">Sound: on</button>
+      <button class="btn" id="btn-quality">Graphics: high</button>
+    </div>
+    <button class="btn danger" id="btn-quit">Abort mission</button>
+    <p class="fine" id="pause-note">Aborting a night keeps what you already sent to the mothership.</p>
+  </div>
+</section>
+
+<!-- ================= END ================= -->
+<section id="scr-end" class="screen dim" hidden>
+  <div class="card">
+    <div class="eyebrow" id="end-eyebrow">Invasion report</div>
+    <h2 id="end-title">Earth has fallen</h2>
+    <p id="end-lede" style="margin-top:8px"></p>
+    <dl class="stats" id="end-body"></dl>
+    <div class="row" style="margin-top:12px;justify-content:flex-end"><button class="btn primary" id="btn-end">Continue</button></div>
+  </div>
+</section>
+
+
+<!-- ================= GLOBE (strategy layer) ================= -->
+<div id="globe-ui" hidden>
+  <div id="g-labels" aria-hidden="true"></div>
+  <header class="g-top">
+    <div class="g-title"><div class="eyebrow" id="g-day">Day 1</div><h2>Earth</h2></div>
+    <div class="g-meters">
+      <div class="meter" id="g-aware" title="How much the world believes in aliens. Higher means a stronger army everywhere."><span>Aware</span><div class="bar"><i></i></div><b class="val">0%</b></div>
+      <div class="meter" id="g-conq" title="Cities you control"><span>Cities</span><div class="bar"><i></i></div><b class="val">0</b></div>
+    </div>
+    <div class="g-right"><div class="wallet" id="g-wallet"></div><button class="btn" id="btn-g-ms">Mothership</button><button id="btn-g-menu" class="icon-btn" aria-label="Menu">II</button></div>
+  </header>
+  <aside id="g-panel" class="g-panel" aria-live="polite"></aside>
+  <p id="g-hint" class="g-hint">Drag to spin Earth · Tap a glowing site to pick a mission</p>
+</div>
+
+<!-- ================= TUTORIAL ================= -->
+<div id="tut" hidden>
+  <div class="tut-head"><span class="eyebrow" id="tut-step">Training 1/6</span><button class="tut-skip" id="tut-skip">Skip tutorial</button></div>
+  <p id="tut-text"></p>
+</div>
+
+<div id="loading">Warming up the saucer…</div>
+<div id="fail" hidden><p>This game needs WebGL, which your browser could not start.<br>Try another browser, or turn on hardware acceleration.</p></div>
+
+<script>
+  // If the game never starts (no WebGL, blocked scripts), say so instead of showing a blank page.
+  window.__aiBooted = false;
+  setTimeout(function () { if (!window.__aiBooted) { document.getElementById('loading').hidden = true; document.getElementById('fail').hidden = false; } }, 25000);
+</script>
+<script type="module" src="./src/main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+// Save data: versioned so future updates can upgrade old saves instead of wiping them.
+import type { Wallet, UpgradeKey } from '../data/balance';
+import type { UnitKey } from '../data/units';
+import { platform } from './platform';
+
+export interface MissionSite {
+  id: string; type: 'abduct' | 'invade'; region: string; city?: string;
+  lat: number; lon: number; name: string; level: number; expires: number; special?: string;
+}
+export interface SaveData {
+  v: number; savedAt: number;
+  day: number; awareness: number; tierUnlocked: number;
+  tutorial: { done: boolean; ms: number; globe: boolean };
+  res: Wallet;
+  army: Record<UnitKey, number>;
+  up: Record<UpgradeKey, number>;
+  regions: Record<string, { alert: number }>;
+  cities: Record<string, { occupied: boolean; attempts: number; since?: number }>;
+  sites: MissionSite[];
+  artifacts: Record<string, number>;
+  totals: { humans: number; biomass: number; metal: number; abducted: number; unitsLost: number; missions: number; citiesTaken: number; playTime: number };
+}
+export const SAVE_VERSION = 2;
+const KEY = 'alien-invasion-save';
+
+export function newSave(): SaveData {
+  return {
+    v: SAVE_VERSION, savedAt: Date.now(), day: 1, awareness: 0, tierUnlocked: 1,
+    tutorial: { done: false, ms: 0, globe: false },
+    res: { humans: 0, biomass: 0, metal: 0 },
+    army: { clone: 0, brute: 0, saucer: 0, walker: 0 },
+    up: { beam: 0, shield: 0, engine: 0, ray: 0, cargo: 0 },
+    regions: {}, cities: {}, sites: [], artifacts: {},
+    totals: { humans: 0, biomass: 0, metal: 0, abducted: 0, unitsLost: 0, missions: 0, citiesTaken: 0, playTime: 0 },
+  };
+}
+/** Fill in anything a newer version added, so old saves keep working. */
+function migrate(s: any): SaveData | null {
+  if (!s || typeof s !== 'object' || typeof s.v !== 'number') return null;
+  const d = newSave();
+  return { ...d, ...s, v: SAVE_VERSION, tutorial: { ...d.tutorial, ...s.tutorial }, res: { ...d.res, ...s.res }, army: { ...d.army, ...s.army },
+    up: { ...d.up, ...s.up }, totals: { ...d.totals, ...s.totals }, regions: s.regions || {}, cities: s.cities || {}, sites: s.sites || [], artifacts: s.artifacts || {} };
+}
+export function loadSave(): SaveData | null {
+  let local: SaveData | null = null, cloud: SaveData | null = null;
+  try { local = migrate(JSON.parse(localStorage.getItem(KEY) || 'null')); } catch { /* storage blocked */ }
+  try { cloud = migrate(JSON.parse(platform.cloudGet(KEY) || 'null')); } catch { /* no cloud */ }
+  if (local && cloud) return cloud.savedAt > local.savedAt ? cloud : local;
+  return local || cloud;
+}
+export function writeSave(s: SaveData) {
+  s.savedAt = Date.now(); const json = JSON.stringify(s);
+  try { localStorage.setItem(KEY, json); } catch { /* ignore */ }
+  platform.cloudSet(KEY, json);
+}
+export function eraseSave() { try { localStorage.removeItem(KEY); } catch { /* ignore */ } platform.cloudSet(KEY, 'null'); }
+
+// Per-device preferences (sound, graphics).
+export const prefs: { muted?: boolean; quality?: 'high' | 'low' } = (() => { try { return JSON.parse(localStorage.getItem('alien-invasion-prefs') || '{}'); } catch { return {}; } })();
+export const savePrefs = () => { try { localStorage.setItem('alien-invasion-prefs', JSON.stringify(prefs)); } catch { /* ignore */ } };

@@ -1,0 +1,27 @@
+{
+  "name": "alien-invasion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Alien Invasion: a 3D browser game. Play a gray alien commander, abduct humans, build an army, conquer Earth.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:crazygames": "tsc --noEmit && vite build --mode crazygames",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "node tools/e2e.mjs"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "three": "0.170.0",
+    "topojson-client": "3.1.0",
+    "world-atlas": "2.0.2"
+  },
+  "devDependencies": {
+    "@types/three": "0.170.0",
+    "@types/topojson-client": "3.1.5",
+    "typescript": "5.9.3",
+    "vite": "6.4.5"
+  }
+}

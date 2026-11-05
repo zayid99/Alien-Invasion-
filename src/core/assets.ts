@@ -74,8 +74,16 @@ function toLit(m: THREE.Material): THREE.Material {
   const s = m as THREE.MeshStandardMaterial; if (s.isMeshStandardMaterial) { s.roughness = Math.max(0.45, s.roughness); s.envMapIntensity = 0.8; }
   return m;
 }
+// Some hosts can't serve .glb files; a page can set window.__assetMode = 'b64' to load base64 copies (*.glb.txt) instead.
+const B64 = (window as any).__assetMode === 'b64';
+async function fetchModel(file: string) {
+  if (!B64) return loader.loadAsync(BASE + file + '.glb');
+  const r = await fetch(BASE + file + '.glb.txt'); if (!r.ok) throw new Error('missing ' + file);
+  const bin = Uint8Array.from(atob((await r.text()).trim()), ch => ch.charCodeAt(0));
+  return loader.parseAsync(bin.buffer, BASE);
+}
 async function loadOne(id: string) {
-  const def = MODELS[id]; const g = await loader.loadAsync(BASE + def.file + '.glb');
+  const def = MODELS[id]; const g = await fetchModel(def.file);
   let skinned = false;
   g.scene.traverse((o: any) => {
     if (o.isMesh) {

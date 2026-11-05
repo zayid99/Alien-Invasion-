@@ -1,11 +1,14 @@
 // The countryside used for abduction nights: a town at a crossroads, three farms, an army base,
-// forests and traffic. Its look (ground, trees, animals, houses) comes from the region's biome.
+// forests and traffic. Its look (ground, trees, animals, houses, sky) comes from the region's biome
+// ("Moonlit Toybox", docs/ART_STYLE.md §2, §4, §5).
 import * as THREE from 'three';
 import { G, track } from '../../game/state';
 import { CFG } from '../../data/balance';
 import { BIOMES } from '../../data/biomes';
 import type { Biome } from '../../data/earth';
 import { Kit } from '../../gfx/kit';
+import { TOON_RAMP } from '../../gfx/toon';
+import { PAL } from '../../gfx/palette';
 import { addHouse, addBarn, addSilo, addWaterTower, addStreetLight, addFence, addBarracks, addFloodlight } from '../../gfx/models';
 import { StaticBatch, CAR_MODELS, ARTIFACTS } from '../../core/assets';
 import { V3, chance, pick, rand, seeded } from '../../core/util';
@@ -22,12 +25,13 @@ const PENS: Record<string, Pen> = {
   P: { minX: -92, maxX: -68, minZ: 96, maxZ: 114 }, C: { minX: 92, maxX: 146, minZ: -142, maxZ: -114 },
 };
 const BASE = { minX: 96, maxX: 166, minZ: 82, maxZ: 162 };
+const BASE_FENCE = '#8a90b8';   // steel fence round the army base (farm fences are wooden PAL.fence)
 export interface CountryOpts { biome: Biome; seed: number; level: number; tutorial?: boolean; title?: boolean }
 
 export function buildCountryside(o: CountryOpts) {
   clearWorld();
   const B = BIOMES[o.biome], half = CFG.mapHalf; G.mapHalf = half; G.ufoY = CFG.ufoAltitude;
-  nightSky(B.skyTop, B.skyHorizon, B.fog, 0.0052);
+  const S = B.sky; nightSky(S.top, S.horizon, S.fog, S.density, { bottom: S.bottom, biome: o.biome });   // §4 sky row + light rig
   const houses: THREE.Vector3[] = [];
   seeded(o.seed, () => {
     const cnv = groundCanvas(2048, half, g => {
@@ -37,18 +41,31 @@ export function buildCountryside(o: CountryOpts) {
       g.field(-160, -152, -64, -98, f1[0], f1[1], true); g.field(-58, -152, -8, -92, f2[0], f2[1], false);
       g.field(-58, 30, -2, 82, f3[0], f3[1], true); g.field(-58, 90, -2, 150, f1[0], f1[1], false); g.field(60, -152, 160, -150, f2[0], f2[1], false);
       for (const p of Object.values(PENS)) g.rect(p.minX - 2, p.minZ - 2, p.maxX + 2, p.maxZ + 2, B.pasture);
-      g.x.strokeStyle = 'rgba(0,0,0,0.28)'; g.x.lineWidth = 2.2 * g.s;   // a crop circle, of course
+      g.x.strokeStyle = 'rgba(26,16,51,0.3)'; g.x.lineWidth = 2.2 * g.s;   // a crop circle, of course
       for (const r of [5, 9, 13]) { g.x.beginPath(); g.x.arc(g.P(-112), g.P(-125), r * g.s, 0, Math.PI * 2); g.x.stroke(); }
-      if (o.biome !== 'desert') { g.circle(-28, -58, 15, o.biome === 'cold' ? '#9fb3c8' : '#26445a'); g.circle(-28, -58, 13, o.biome === 'cold' ? '#b9cadc' : '#1b3448'); }
-      g.rect(42, 14, 70, 40, '#55585e'); g.rect(BASE.minX, BASE.minZ, BASE.maxX, BASE.maxZ, '#585b52');
-      g.circle(150, 146, 8, '#6a6d64'); g.x.fillStyle = '#e8e2c8'; g.x.font = `${Math.round(9 * g.s)}px sans-serif`; g.x.textAlign = 'center'; g.x.textBaseline = 'middle'; g.x.fillText('H', g.P(150), g.P(146));
+      if (B.water) { g.circle(-28, -58, 15, B.shore); g.circle(-28, -58, 13, B.water); }   // pond shore (the water is a mesh on top)
+      g.rect(42, 14, 70, 40, B.plaza); g.rect(BASE.minX, BASE.minZ, BASE.maxX, BASE.maxZ, B.base);
+      g.circle(150, 146, 8, PAL.streetPole); g.x.fillStyle = PAL.cream; g.x.font = `bold ${Math.round(9 * g.s)}px sans-serif`; g.x.textAlign = 'center'; g.x.textBaseline = 'middle'; g.x.fillText('H', g.P(150), g.P(146));
       g.road(-120, -20, 26, -20, 4, B.dirt, null); g.road(-100, 70, 26, 70, 4, B.dirt, null); g.road(100, -90, 100, -6, 4, B.dirt, null); g.road(36, 100, BASE.minX, 100, 7, B.road, null);
-      g.road(-half, ROAD_Z, half, ROAD_Z, 10, B.road); g.road(ROAD_X, -half, ROAD_X, half, 10, B.road);
+      g.road(-half, ROAD_Z, half, ROAD_Z, 10, B.road); g.road(ROAD_X, -half, ROAD_X, half, 10, B.road);   // asphalt + poster lane dashes
+      // Painted kerbs: a thin plum line along both edges of the main roads (toy-diorama edges; the ground itself
+      // is never inked), broken at the crossroads and where a side road joins. Gaps are [from, to], ascending.
+      g.x.fillStyle = 'rgba(26,16,51,0.4)'; const kw = Math.max(1, g.s * 0.35);
+      const kerb = (horiz: boolean, at: number, gaps: [number, number][]) => {
+        let a = -half;
+        for (const [g0, g1] of [...gaps, [half, half]]) {
+          if (horiz) g.x.fillRect(g.P(a), g.P(at) - kw / 2, g.P(g0) - g.P(a), kw); else g.x.fillRect(g.P(at) - kw / 2, g.P(a), kw, g.P(g0) - g.P(a));
+          a = g1;
+        }
+      };
+      kerb(true, ROAD_Z - 5, [[ROAD_X - 5, ROAD_X + 5], [98, 102]]); kerb(true, ROAD_Z + 5, [[ROAD_X - 5, ROAD_X + 5]]);
+      kerb(false, ROAD_X - 5, [[-22, -18], [ROAD_Z - 5, ROAD_Z + 5], [68, 72]]); kerb(false, ROAD_X + 5, [[ROAD_Z - 5, ROAD_Z + 5], [96.5, 103.5]]);
     });
     addGround(cnv, half, B.outer);
-    if (o.biome !== 'desert') {
-      const wgeo = new THREE.CircleGeometry(13.5, 40).rotateX(-Math.PI / 2), wmat = new THREE.MeshStandardMaterial({ color: o.biome === 'cold' ? 0xa9bfd6 : 0x1a3550, roughness: o.biome === 'cold' ? 0.3 : 0.08, metalness: 0.5, envMapIntensity: 1.4 });
-      const pond = new THREE.Mesh(wgeo, wmat); pond.position.set(-28, 0.06, -58); G.world.add(pond); track<{ dispose(): void }>(wgeo, wmat);
+    if (B.water) {
+      // Pond (ice in the snow): toon ramp like the ground, no rim and no ink (§4: lakes are MeshToon, ground is never inked).
+      const wgeo = new THREE.CircleGeometry(13.5, 40).rotateX(-Math.PI / 2), wmat = new THREE.MeshToonMaterial({ color: B.water, gradientMap: TOON_RAMP });
+      const pond = new THREE.Mesh(wgeo, wmat); pond.position.set(-28, 0.06, -58); pond.userData.noInk = true; G.world.add(pond); track<{ dispose(): void }>(wgeo, wmat);
       G.obstacles.push({ minX: -38, maxX: -18, minZ: -68, maxZ: -48 });
     }
     const k = new Kit(), sb = new StaticBatch(), ob = G.obstacles;
@@ -81,8 +98,8 @@ export function buildCountryside(o: CountryOpts) {
       ob.push(addBarracks(k, 116, 112, 0)); ob.push(addBarracks(k, 134, 112, 0));
       sb.add('hangar', 150, 0, 132, Math.PI, 1); ob.push({ minX: 139, maxX: 161, minZ: 122, maxZ: 142 });
       sb.add('satellite_dish', 154, 0, 94, rand(0, 6), 1); ob.push({ minX: 150, maxX: 158, minZ: 90, maxZ: 98 });
-      addFence(k, BASE.minX, BASE.minZ, BASE.maxX, BASE.minZ, '#8a8f96'); addFence(k, BASE.maxX, BASE.minZ, BASE.maxX, BASE.maxZ, '#8a8f96');
-      addFence(k, BASE.maxX, BASE.maxZ, BASE.minX, BASE.maxZ, '#8a8f96'); addFence(k, BASE.minX, BASE.maxZ, BASE.minX, 106, '#8a8f96');
+      addFence(k, BASE.minX, BASE.minZ, BASE.maxX, BASE.minZ, BASE_FENCE); addFence(k, BASE.maxX, BASE.minZ, BASE.maxX, BASE.maxZ, BASE_FENCE);
+      addFence(k, BASE.maxX, BASE.maxZ, BASE.minX, BASE.maxZ, BASE_FENCE); addFence(k, BASE.minX, BASE.maxZ, BASE.minX, 106, BASE_FENCE);
       for (const [x, z] of [[100, 86], [162, 86], [100, 158], [162, 158]]) addFloodlight(k, x, z, Math.atan2(130 - x, 120 - z));
     }
     // ---- forest + scatter (CC0 trees, drawn instanced) ----

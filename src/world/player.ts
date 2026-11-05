@@ -5,18 +5,41 @@ import { scene, camera, LIGHT } from '../core/engine';
 import { INPUT } from '../core/input';
 import { SFX } from '../core/audio';
 import { makeUFO } from '../gfx/models';
-import { FX, FT, BEAM } from '../gfx/fx';
+import { FX, FT, BEAM, FXC, shellMaterial } from '../gfx/fx';
+import { PAL } from '../gfx/palette';
 import { UI } from '../ui/dom';
 import { CFG, STAT, RES } from '../data/balance';
 import { V3, _v1, _v2, chance, clamp, damp, hdist, rand, reducedMotion } from '../core/util';
-import { damageEnt, say } from './entity';
+import { damageEnt, say, jellyHit } from './entity';
 import type { Entity } from './entity';
-import { PROJ, raiseAlert } from './combat';
-import { HUMAN_KINDS, ANIMAL_KINDS, SAY } from './lines';
+import { PROJ, raiseAlert, liftStart } from './combat';
+import { HUMAN_KINDS, ANIMAL_KINDS } from './lines';
 
 export let UFO: ReturnType<typeof makeUFO> = null;
 export const playerHooks = { onDown: () => {}, onSend: () => {} };
-export function initUFO() { UFO = makeUFO(); scene.add(UFO.group); UFO.group.visible = false; }
+export function initUFO() {
+  UFO = makeUFO(); scene.add(UFO.group); UFO.group.visible = false;
+  // §6 "Shields": the player bubble is a stepped violet fresnel (power 2.0) with a white hit flash and a jelly wobble
+  const old = UFO.shield.material; UFO.shield.material = shellMaterial(PAL.violet, 2.0, 0, { wobAmp: 0.2 }); old.dispose();
+  initAntenna();
+}
+
+// ---------- saucer juice (§5, §9): running-light chase, idle squash, boost stretch, burp spring, antenna lag ----------
+const CHASE = [PAL.slime, PAL.bubblegum, PAL.poster, PAL.earthCyan].map(c => new THREE.Color(c).multiplyScalar(3));
+const ALARM = new THREE.Color(PAL.tomato).multiplyScalar(3);   // low-shield blink
+const ANT = { obj: null as THREE.Object3D, bob: null as THREE.Object3D, rx0: 0, rz0: 0, rx: 0, rz: 0, vx: 0, vz: 0 };
+/** The antenna (C8, models lane) is optional: if makeUFO() returns one, it gets a spring lag and a pulsing bobble. */
+function initAntenna() {
+  const ant = (UFO as typeof UFO & { antenna?: THREE.Object3D }).antenna; if (!ant) return;
+  ANT.obj = ant; ANT.rx0 = ant.rotation.x; ANT.rz0 = ant.rotation.z;
+  // the bobble: a separate glow mesh centred on its own origin (scaling it then pulses it in place)
+  ant.traverse(o => {
+    const m = o as THREE.Mesh; if (ANT.bob || o === ant || !m.isMesh || Array.isArray(m.material) || !(m.material as THREE.MeshBasicMaterial).isMeshBasicMaterial) return;
+    m.geometry.computeBoundingSphere(); if (m.geometry.boundingSphere.center.length() < 0.05) ANT.bob = m;
+  });
+}
+/** Saucer burp when cargo is banked: body spring toward (1.08, 0.9, 1.08), k 180, damping 12. */
+export function saucerBurp() { const P = G.player; if (P) { P.burp = 1; P.burpV = 0; } }
 
 export function playerStats() {
   const u = G.save.up;
@@ -25,7 +48,7 @@ export function playerStats() {
 }
 export function makePlayer(x: number, z: number) {
   const s = playerStats();
-  UFO.group.position.set(x, G.ufoY, z); UFO.group.visible = true; UFO.group.rotation.set(0, 0, 0);
+  UFO.group.position.set(x, G.ufoY, z); UFO.group.visible = true; UFO.group.rotation.set(0, 0, 0); UFO.body.scale.set(1, 1, 1);
   G.player = { obj: UFO.group, pos: UFO.group.position, vel: new V3(), stats: s, shield: s.maxShield, maxShield: s.maxShield, boost: 1, beamOn: false,
     dead: false, hurtT: 9, rayCool: 0, sending: 0, pulse: 0, hitFlash: 0, liftingMass: 0, hh: 0, lowWarned: false, moved: 0 };
   return G.player;
@@ -35,7 +58,10 @@ export function updatePlayer(dt: number) {
   const S = P.stats, m = INPUT.move(), yaw = G.camYaw;
   const wx = Math.cos(yaw) * m.x - Math.sin(yaw) * m.z, wz = -Math.sin(yaw) * m.x - Math.cos(yaw) * m.z;
   let speed = S.speed * (P.beamOn ? 0.55 : 1);
-  if (INPUT.boost() && P.boost > 0.04 && (m.x || m.z)) { speed *= 1.8; P.boost = Math.max(0, P.boost - dt * 0.5); } else P.boost = Math.min(1, P.boost + dt * 0.2);
+  const boosting = INPUT.boost() && P.boost > 0.04 && (m.x || m.z);
+  if (boosting) { speed *= 1.8; P.boost = Math.max(0, P.boost - dt * 0.5); } else P.boost = Math.min(1, P.boost + dt * 0.2);
+  if (boosting && !P.boosting) P.stretchT = 0.15;   // boost start: stretch for 150 ms
+  P.boosting = boosting;
   P.vel.x = damp(P.vel.x, wx * speed, 4.5, dt); P.vel.z = damp(P.vel.z, wz * speed, 4.5, dt);
   P.pos.x += P.vel.x * dt; P.pos.z += P.vel.z * dt; P.moved += Math.hypot(P.vel.x, P.vel.z) * dt;
   const H = G.mapHalf - 8; P.pos.x = clamp(P.pos.x, -H, H); P.pos.z = clamp(P.pos.z, -H, H);
@@ -54,21 +80,45 @@ export function updatePlayer(dt: number) {
   if (P.sending > 0) { P.sending -= dt; if (P.sending <= 0) finishSend(); }
   P.hurtT += dt; if (P.hurtT > CFG.shieldRegenDelay) P.shield = Math.min(P.maxShield, P.shield + S.regen * dt);
   P.pulse = Math.max(0, P.pulse - dt * 3); P.hitFlash = Math.max(0, P.hitFlash - dt * 2.5);
-  animateSaucer(P);
+  animateSaucer(P, dt);
 }
-function animateSaucer(P: any) {
+function animateSaucer(P: any, dt: number) {
   const low = P.shield < P.maxShield * 0.25;
+  // 14 running lights: an 8 Hz chase cycling slime / bubblegum / poster / earth-cyan at k 3 (§5)
+  const step = reducedMotion ? 0 : Math.floor(G.time * 8);
   UFO.lights.forEach((l, i) => {
-    const on = (G.time * 7 + i) % 14 < 3;
-    if (P.sending > 0) l.material.color.setRGB(3, 3, 3.5);
-    else if (low && (G.time * 6) % 2 < 1) l.material.color.setRGB(4, 0.3, 0.2);
-    else if (i % 2) l.material.color.setRGB(on ? 4 : 0.6, on ? 3 : 0.45, on ? 1 : 0.15);
-    else l.material.color.setRGB(on ? 2.8 : 0.45, on ? 1.4 : 0.22, on ? 4 : 0.6);
+    if (P.sending > 0) l.material.color.setRGB(3, 3, 3);
+    else if (low && (G.time * 6) % 2 < 1) l.material.color.copy(ALARM);   // low shield: tomato blink
+    else l.material.color.copy(CHASE[(i + step) % 4]);
   });
-  const glow = 1 + BEAM.on * 1.5 + P.pulse * 2; UFO.emitterMat.color.setRGB(0.9 * glow, 0.5 * glow, 2.2 * glow);
-  UFO.shield.material.uniforms.opacity.value = Math.max(P.hitFlash * 0.9, P.sending > 0 ? 0.5 : 0, low ? 0.12 + 0.1 * Math.sin(G.time * 10) : 0);
-  UFO.shield.material.uniforms.time.value = G.time;
-  LIGHT.ufo.position.set(P.pos.x, P.pos.y - 7, P.pos.z); LIGHT.ufo.intensity = 220 + BEAM.on * 200;
+  const glow = 1 + BEAM.on * 0.5 + P.pulse * 0.8; UFO.emitterMat.color.setRGB(0.9 * glow, 2.4 * glow, 0.5 * glow);   // slime emitter disc
+  // shield: stepped fresnel; on hit a white flash for 80 ms and a wobble (amplitude 0.2, decay exp(-6t))
+  const su = UFO.shield.material.uniforms;
+  su.opacity.value = Math.max(P.hitFlash * 0.9, P.sending > 0 ? 0.5 : 0, low ? 0.12 + 0.1 * Math.sin(G.time * 10) : 0);
+  su.time.value = G.time;
+  P.shieldT = (P.shieldT ?? 9) + dt;
+  if (su.flash) su.flash.value = P.shieldT < 0.08 ? 1 : 0;
+  if (su.wob) su.wob.value = P.shieldT < 1 ? Math.exp(-6 * P.shieldT) : 0;
+  LIGHT.ufo.position.set(P.pos.x, P.pos.y - 7, P.pos.z); LIGHT.ufo.intensity = 140 + BEAM.on * 60;   // slime underglow (§4)
+  // body: idle squash scale.y = 1 − 0.06·sin(3t), boost stretch to (0.85, 1.15), burp spring to (1.08, 0.9, 1.08)
+  P.burp = P.burp || 0; P.burpV = P.burpV || 0;
+  P.burpV += (-180 * P.burp - 12 * P.burpV) * dt; P.burp += P.burpV * dt;
+  P.stretchT = Math.max(0, (P.stretchT || 0) - dt);
+  const st = P.stretchT > 0 ? Math.sin(Math.PI * (1 - P.stretchT / 0.15)) : 0;
+  const idle = reducedMotion ? 1 : 1 - 0.06 * Math.sin(G.time * 3);
+  const sxz = (1 - 0.15 * st) * (1 + 0.08 * P.burp), sy = idle * (1 + 0.15 * st) * (1 - 0.1 * P.burp);
+  UFO.body.scale.set(sxz, sy, sxz);
+  // antenna: spring lag, rotation follows velocity × −0.04 (in the frame of whatever it hangs from), bobble pulse 1.5 Hz
+  const A = ANT.obj;
+  if (A) {
+    const yaw = A.parent === UFO.body ? UFO.body.rotation.y : 0, c = Math.cos(yaw), s = Math.sin(yaw);
+    const lx = c * P.vel.x - s * P.vel.z, lz = s * P.vel.x + c * P.vel.z;
+    const tx = clamp(-0.04 * lz, -0.6, 0.6), tz = clamp(0.04 * lx, -0.6, 0.6);
+    ANT.vx += ((tx - ANT.rx) * 90 - ANT.vx * 9) * dt; ANT.rx += ANT.vx * dt;
+    ANT.vz += ((tz - ANT.rz) * 90 - ANT.vz * 9) * dt; ANT.rz += ANT.vz * dt;
+    A.rotation.x = ANT.rx0 + ANT.rx; A.rotation.z = ANT.rz0 + ANT.rz;
+    if (ANT.bob) ANT.bob.scale.setScalar(reducedMotion ? 1 : 1 + 0.15 * Math.sin(G.time * Math.PI * 3));
+  }
 }
 function beamGrab(P: any) {
   const S = P.stats; let lifting = 0;
@@ -86,7 +136,7 @@ function beamGrab(P: any) {
       continue;
     }
     e.lift = 1; e.vy = 0; lifting += m; e.stun = 0;
-    if (HUMAN_KINDS.has(e.kind) && chance(0.5)) say(e, SAY.lifted);
+    liftStart(e);   // squash, jelly bubble, YOINK!, maybe a shout
   }
   P.liftingMass = lifting;
 }
@@ -105,9 +155,11 @@ function fireRay(P: any) {
     if (mis) { mis.hp = -1; FX.explode(mis.pos, 0.6); point = mis.pos.clone(); }
     else { target = autoTarget(P); if (!target) return; point = target.pos.clone().setY(target.pos.y + target.hh); }
   }
-  FX.line(from, point, new THREE.Color(2.6, 1.3, 4.2), 0.32, 0.09); FX.spark(point, new THREE.Color(2.6, 1.5, 4), 6, 6, 0.3, 0.3);
+  // stun ray (§6): bubblegum core + white inner line; on hit 6 bubblegum star sparks and a flat shockwave ring
+  FX.ray(from, point); FX.spark(point, FXC.bubblegum, 6, 6, 0.3, 0.3);
+  FX.ring(point, 2.5, 0.25, FXC.bubblegum);
   SFX.play('zap', null, 0.03);
-  if (target) rayHit(target, P.stats.rayDmg);
+  if (target) { FX.word(point, 'zap'); rayHit(target, P.stats.rayDmg); }
 }
 function rayTargetNear(a: THREE.Vector3, r: number) {
   let best: Entity = null, bd = r;
@@ -132,12 +184,14 @@ function autoTarget(P: any) {
   }
   return best;
 }
+/** Stunned soldiers sometimes swear (comic-strip style). */
+const CURSE = ['#@$%!'];
 export function rayHit(e: Entity, dmg: number) {
-  e.flash = 0.1;
+  e.flash = 0.1; jellyHit(e);
   if (HUMAN_KINDS.has(e.kind) || ANIMAL_KINDS.has(e.kind)) {
     if (G.mode === 'invasion' && e.team === 'earth') { damageEnt(e, dmg, 'player'); return; }
-    const was = e.stun > 0; e.stun = Math.max(e.stun, 3.4 + dmg * 0.05);
-    if (!was && HUMAN_KINDS.has(e.kind)) FT.spawn(e.pos, '✦ ✦ ✦', 'info', Math.min(e.stun, 2.2), 0.2, e);
+    const was = e.stun > 0; e.stun = Math.max(e.stun, 3.4 + dmg * 0.05);   // dizzy stars orbit while stun > 0 (fx.ts)
+    if (!was && (e.kind === 'soldier' || e.kind === 'cop') && chance(0.3)) say(e, CURSE);
     if (G.mode === 'mission' && e.team !== 'earth') raiseAlert(0.6);
     e.wasStunned = true;
     return;
@@ -146,20 +200,23 @@ export function rayHit(e: Entity, dmg: number) {
 }
 export function damagePlayer(dmg: number) {
   const P = G.player; if (!P || P.dead || G.mode === 'victory' || P.invulnerable) return;
-  P.shield -= dmg; P.hurtT = 0; P.hitFlash = 1;
+  P.shield -= dmg; P.hurtT = 0; P.hitFlash = 1; P.shieldT = 0;   // shield flash + wobble (animateSaucer)
+  // §6 damage feedback: the #hurt overlay (C6, UI lane). Guarded: older dom.ts builds have no UI.hurt.
+  (UI as { hurt?: (level: number) => void }).hurt?.(clamp(0.45 + dmg / P.maxShield * 4, 0.45, 1));   // method call keeps `this`
   SFX.play('hit', null, 0.06); G.shake = Math.max(G.shake, 0.2 + dmg * 0.02);
   if (P.shield <= P.maxShield * 0.25 && !P.lowWarned) { P.lowWarned = true; UI.toast('Shield critical! Fly away to recharge', 'warn'); }
   if (P.shield > P.maxShield * 0.5) P.lowWarned = false;
   if (P.shield <= 0) {
     P.shield = 0; P.dead = true; P.beamOn = false;
-    FX.explode(P.pos, 2.2); SFX.play('warp'); FX.pillar(P.pos, 0xff6a5a, 200, 1.5, 3); UFO.group.visible = false; BEAM.hide();
+    FX.explode(P.pos, 2.2); SFX.play('warp'); FX.pillar(P.pos, PAL.tomato, 200, 1.5, 3); UFO.group.visible = false; BEAM.hide();
     setTimeout(() => playerHooks.onDown(), 1600);
   }
 }
 export function startSend() {
   const P = G.player; if (P.sending > 0) return;
   if (G.cargo.mass <= 0) { UI.toast('The cargo hold is empty', '', 1.5); SFX.play('error'); return; }
-  P.sending = CFG.sendTime; SFX.play('send'); FX.pillar(P.pos, 0xc58bff, 220, CFG.sendTime + 0.4, 2.4);
+  P.sending = CFG.sendTime; SFX.play('send'); FX.pillar(P.pos, PAL.slime, 220, CFG.sendTime + 0.4, 2.4);   // slime send pillar
+  FX.word(_v1.copy(P.pos).setY(P.pos.y - 3), 'send');
 }
 function finishSend() { bankCargo(); UI.toast('Cargo received by the mothership', 'good', 1.8); playerHooks.onSend(); }
 export function bankCargo() {

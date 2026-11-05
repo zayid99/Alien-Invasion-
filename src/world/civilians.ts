@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { G } from '../game/state';
 import { instance, CIVILIAN_MODELS, SCIENTIST_MODELS, COP_MODEL } from '../core/assets';
 import { FARM_MAKERS, makeHaybale } from '../gfx/models';
-import { Kit, box, cyl, sph } from '../gfx/kit';
+import { cachedModel, box, cyl, sph } from '../gfx/kit';
 import { SFX } from '../core/audio';
 import { FX } from '../gfx/fx';
 import { V3, _v1, angTo, chance, clamp, damp, hdist, pick, rand } from '../core/util';
@@ -12,9 +12,26 @@ import { makeEnt, stepMove, say, attachToBone, pushOut } from './entity';
 import type { Entity, Brain, Team } from './entity';
 import { alertLevel } from './combat';
 import { SAY } from './lines';
+import { PAL } from '../gfx/palette';
 
-const strawHat = () => { const k = new Kit(); k.add(cyl(0.55, 0.55, 0.05, 12), '#d9b45a', { p: [0, 0, 0] }); k.add(cyl(0.3, 0.33, 0.24, 10), '#cfa64a', { p: [0, 0.13, 0] }); return k.build(); };
-const hypnoHelmet = () => { const k = new Kit(); k.add(sph(0.42, 10, 6), '#8f96ad', { s: [1, 0.7, 1], m: 'metal' }); k.add(box(0.7, 0.1, 0.12), '#c58bff', { p: [0, -0.05, 0.36], m: 'glow', k: 3.5 }); k.add(cyl(0.02, 0.02, 0.4, 4), '#8f96ad', { p: [0, 0.4, 0], m: 'metal' }); k.add(sph(0.07, 6, 5), '#ff9cf5', { p: [0, 0.62, 0], m: 'glow', k: 3 }); return k.build(); };
+// Hats and helmets (Kit-built, so toon shaded and inked automatically; docs/ART_STYLE.md §5).
+/** Farmer's straw hat: poster-straw brim and crown with a tomato band. */
+// cachedModel: one shared geometry (and one onormal build) for every farmer / brute instead of a fresh,
+// never-disposed Kit build per person.
+const strawHat = () => cachedModel('strawHat', k => {
+  k.add(cyl(0.55, 0.55, 0.05, 12), '#f7c948', { p: [0, 0, 0] });
+  k.add(cyl(0.3, 0.33, 0.24, 10), '#e8b23a', { p: [0, 0.13, 0] });
+  k.add(cyl(0.335, 0.34, 0.07, 10), PAL.tomato, { p: [0, 0.06, 0] });
+});
+/** Hypno-brute helmet (a human under Empire control): violet metal dome, slime visor, bubblegum antenna tip. */
+const hypnoHelmet = () => cachedModel('hypnoHelmet', k => {
+  k.add(sph(0.42, 10, 6), PAL.violet, { s: [1, 0.7, 1], m: 'metal' });
+  k.add(box(0.7, 0.1, 0.12), PAL.slime, { p: [0, -0.05, 0.36], m: 'glow', k: 2.6 });
+  k.add(cyl(0.02, 0.02, 0.4, 4), PAL.saucerUnder, { p: [0, 0.4, 0], m: 'metal' });
+  k.add(sph(0.07, 6, 5), PAL.bubblegum, { p: [0, 0.62, 0], m: 'glow', k: 3 });
+});
+/** Artifacts carry a poster sparkle (§5), HDR so it blooms like the stun stars. */
+const POSTER_SPARK = new THREE.Color(3.2, 2.6, 0.6);
 
 export type HumanStyle = 'civ' | 'farmer' | 'scientist' | 'cop' | 'soldier' | 'brute';
 export function spawnHuman(x: number, z: number, style: HumanStyle = 'civ', o: { brain?: Brain; team?: Team; hp?: number; mini?: string; home?: Vec3 | null } = {}) {
@@ -99,9 +116,16 @@ export function spawnProp(kind: string, obj: THREE.Object3D, x: number, z: numbe
   return makeEnt(kind, obj, { r: o.r || 1, hh: o.hh || 0.8, mini: o.mini || '#d8c070', shadow: o.shadow || 2, lootKind: o.lootKind, heading: rand(0, 6) });
 }
 export function spawnHaybale(x: number, z: number) { return spawnProp('haybale', makeHaybale(), x, z, { r: 1.2, shadow: 2.4 }); }
+/** Earth artifacts keep their colours, spin, slow-bob and sparkle (§5). The bob moves only the model inside the root. */
 export function spawnArtifact(id: string, x: number, z: number) {
   const m = instance(id); const e = spawnProp('artifact', m.root, x, z, { r: 0.6, hh: 0.4, mini: '#ffd65c', shadow: 1, lootKind: 'artifact' });
-  e.artifact = id.replace('_', ' '); e.brain = (a: Entity) => { a.obj.rotation.y += 0.02; if (chance(0.02)) FX.spark(_v1.copy(a.pos).setY(1), 0xffd65c, 1, 2, 0.2, 0.6, 0); };
+  const inner = m.root.children[0], y0 = inner ? inner.position.y : 0;
+  e.artifact = id.replace('_', ' ');
+  e.brain = (a: Entity) => {
+    a.obj.rotation.y += 0.02;
+    if (inner) inner.position.y = y0 + 0.12 + Math.sin(a.t * 2) * 0.12;
+    if (chance(0.02)) FX.spark(_v1.copy(a.pos).setY(1), POSTER_SPARK, 1, 2, 0.2, 0.6, 0);
+  };
   return e;
 }
 

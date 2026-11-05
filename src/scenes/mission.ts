@@ -23,13 +23,14 @@ import { $, UI } from '../ui/dom';
 import { updateHUD, drawMinimap } from '../ui/hud';
 import { TUT } from '../ui/tutorial';
 import { cone } from '../gfx/kit';
+import { PAL } from '../gfx/palette';
 import { leaveGlobe } from './globe';
 
 export const missionHooks = { summary: (_title: string, _html: string, _note: string, _tutorial: boolean) => {} };
 let marker: THREE.Mesh = null;
 
 export function startMission(site: MissionSite | null, tutorial = false) {
-  leaveGlobe();
+  leaveGlobe(); TUT.leaveScene(); UI.clearGlobe();   // §7 scene hygiene: no globe UI, labels or Earth tutorial in a mission
   const region = regionById(site ? site.region : 'us-midwest'), level = site ? site.level : 1;
   buildCountryside({ biome: region.biome, seed: site ? hashString(site.id) : CFG.tutorialSeed, level, tutorial });
   G.mode = 'mission'; G.paused = false; G.modeTime = 0; G.nightT = CFG.nightLength;
@@ -39,7 +40,8 @@ export function startMission(site: MissionSite | null, tutorial = false) {
     spawnT: 2, civT: 3, hiding: 0, quietT: 0, ended: false, noMilitary: tutorial, biome: region.biome, regionName: region.name };
   const P = makePlayer(-40, 40); P.invulnerable = tutorial; G.camYaw = 0.35; G.camDist = innerWidth < innerHeight ? 52 : 36;
   camera.position.set(-40, 60, 90);
-  if (!marker) { marker = new THREE.Mesh(cone(0.9, 1.8, 4).rotateX(Math.PI), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 3.4, 1), toneMapped: false })); }
+  // tutorial target arrow: poster yellow (the "look here" colour), HDR so it pops through the night
+  if (!marker) { marker = new THREE.Mesh(cone(0.9, 1.8, 4).rotateX(Math.PI), new THREE.MeshBasicMaterial({ color: new THREE.Color(PAL.poster).multiplyScalar(3), toneMapped: false })); }
   marker.visible = false; G.world.add(marker);
   UI.show(null); UI.hud(true); $('alert').hidden = tutorial; $('m-cargo').hidden = false; $('deploy').hidden = true; $('objective').textContent = '';
   $('mode-label').textContent = tutorial ? 'Training night · US Midwest' : `Day ${G.save.day} · ${region.name}`;

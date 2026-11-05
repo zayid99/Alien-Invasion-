@@ -4,7 +4,7 @@ import { G } from '../game/state';
 import { LOOT } from '../data/balance';
 import type { Loot } from '../data/balance';
 import { blobShadow } from '../gfx/kit';
-import { FT } from '../gfx/fx';
+import { FT, FX } from '../gfx/fx';
 import { play } from '../core/assets';
 import type { ModelInstance } from '../core/assets';
 import { V3, clamp, pick, rand } from '../core/util';
@@ -21,6 +21,12 @@ export class Entity {
   model: ModelInstance | null = null; animSpeed = 1;
   mini: string | null = null; miniR = 1.6; heading = 0; speed = 0; lift = 0; vy = 0; cool = rand(0, 1.5); seed = rand(0, 10);
   shadow: THREE.Mesh | null = null; shadowSize = 1.5;
+  /** Jelly hit spring (§6 "Squash-and-stretch"): strength s (1 on hit, × exp(−8·dt)) and its phase clock. */
+  jelly = 0; jellyT = 0;
+  /** Seconds since this entity started rising in the tractor beam (lift squash + wobble). */
+  liftT = 0;
+  /** Rest scale of `obj` while a squash is applied (captured lazily), and whether obj.scale is currently modified. */
+  baseScale: Vec3 | null = null; squashed = false;
   onDamage: ((e: Entity, dmg: number, src: any) => void) | null = null;
   onDeath: ((e: Entity, src: any) => void) | null = null;
   onAbduct: ((e: Entity) => void) | null = null;
@@ -51,6 +57,7 @@ export function updateEnts(dt: number, updateLift: (e: Entity, dt: number) => vo
     e.t += dt; e.sayT -= dt; if (e.stun > 0) e.stun -= dt;
     if (e.lift) updateLift(e, dt); else if (e.brain) e.brain(e, dt);
     if (e.jiggle > 0) { e.jiggle -= dt; e.obj.rotation.z = e.jiggle > 0 ? Math.sin(G.time * 45) * 0.05 : 0; }
+    applySquash(e, dt);
     if (e.model?.mixer) e.model.mixer.update(dt * e.animSpeed);
     if (e.shadow) { e.shadow.position.set(e.pos.x, 0.05, e.pos.z); e.shadow.scale.setScalar(e.shadowSize * clamp(1 - e.pos.y / 20, 0.15, 1)); }
   }
@@ -58,11 +65,50 @@ export function updateEnts(dt: number, updateLift: (e: Entity, dt: number) => vo
 }
 export function damageEnt(e: Entity, dmg: number, src?: any) {
   if (!e || e.dead) return;
+  if (e.hp > 0) jellyHit(e);
   if (e.onDamage) { e.onDamage(e, dmg, src); return; }
   if (e.hp <= 0) return;
   e.hp -= dmg; e.flash = 0.12;
   if (e.hp <= 0) { e.hp = 0; e.onDeath?.(e, src); }
 }
+
+// ---------- squash and stretch (visual only: hitboxes use e.r / e.hh, never the object scale) ----------
+/**
+ * Generic jelly hit spring on the entity's visual root (§6, §9): s = 1 on hit, scale
+ * (1 + 0.22·s·sin(30t), 1 − 0.22·s·sin(30t), 1 + 0.22·s·sin(30t)), s *= exp(−8·dt).
+ * Structures wobble at a third of the strength; the HQ (whose shield dome shows hits) does not wobble.
+ */
+export function jellyHit(e: Entity, s = 1) {
+  if (!e || e.dead || e.kind === 'hq') return;
+  if (e.jelly < 0.3) e.jellyT = 0;   // restart the phase only once the last wobble has mostly settled (rapid fire keeps it going)
+  e.jelly = Math.max(e.jelly, e.structure ? s * 0.35 : s);
+}
+/**
+ * Apply the hit spring and the abduction squash (lift start: squash to (0.9, 1.18, 0.9) over 120 ms, ease back,
+ * then scale.y = 1 + 0.12·sin(9t) with xz inverse while lifted). Restores the rest scale once both are done.
+ */
+function applySquash(e: Entity, dt: number) {
+  let sxz = 1, sy = 1;
+  if (e.jelly > 0.01) {
+    const w = 0.22 * e.jelly * Math.sin(30 * e.jellyT);
+    sxz += w; sy -= w; e.jellyT += dt; e.jelly *= Math.exp(-8 * dt);
+  } else e.jelly = 0;
+  if (e.lift === 1) {
+    const t = (e.liftT += dt);
+    const k = t < 0.12 ? t / 0.12 : Math.max(0, 1 - (t - 0.12) / 0.18), q = k * k * (3 - 2 * k);   // squash in, ease back
+    const wob = clamp((t - 0.12) / 0.3, 0, 1) * 0.12 * Math.sin(t * 9);                          // lifted jelly wobble
+    sxz *= (1 - 0.1 * q) * (1 - wob); sy *= (1 + 0.18 * q) * (1 + wob);
+  } else e.liftT = 0;
+  if (sxz === 1 && sy === 1) {
+    if (e.squashed) { e.obj.scale.copy(e.baseScale); e.squashed = false; }
+    return;
+  }
+  if (!e.squashed) e.baseScale = (e.baseScale || new V3()).copy(e.obj.scale);   // rest scale (re-read every time a squash starts)
+  e.obj.scale.set(e.baseScale.x * sxz, e.baseScale.y * sy, e.baseScale.z * sxz); e.squashed = true;
+}
+// Dizzy stars orbit every stunned entity (drawn by FX.update; §6 "Dizzy stars").
+FX.addDizzySource(() => G.ents);
+
 /** Push a point out of any building it ended up inside. */
 export function pushOut(pos: Vec3, r: number) {
   for (const o of G.obstacles) {

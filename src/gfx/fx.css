@@ -1,0 +1,68 @@
+/* Comic SFX words (docs/ART_STYLE.md §6 table, §9 "FT / SFX pop"), spawned by FX.word() as
+   <div class="ft sfx sfx-KIND">. Base .ft styling (position, Bangers, ink stroke, the plain pop) lives in style.css;
+   this file adds the per-word size, fill colour and the starburst behind each word.
+
+   Every word is: Bangers with the ink stroke, filled with --fill, sitting on a 14-point burst in --burst that has
+   its own ink outline (the ::before layer is the ink, ::after the colour, both clipped to the same star).
+   FT positions the element with the `translate` property, so `scale` / `rotate` below pivot on the word itself.
+   Only scale / rotate / opacity are animated. */
+
+.ft.sfx {
+  --fill: var(--poster, #ffd23f);
+  --burst: var(--tomato, #ff5a4f);
+  --size: 30px;
+  isolation: isolate;                 /* keeps the burst pseudo-elements behind the text, inside this word */
+  padding: .18em .34em .1em;
+  font: var(--size)/1 var(--font-comic, "Bangers", Impact, "Arial Black", sans-serif);
+  letter-spacing: .04em;
+  color: var(--fill);
+  text-shadow: var(--stroke), 0 4px 0 var(--ink, #1a1033);
+  transform-origin: 50% 70%;
+  pointer-events: none;
+}
+.ft.sfx::before,
+.ft.sfx::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  clip-path: polygon(50% 0%, 59% 22%, 79% 7%, 75% 31%, 98% 27%, 83% 45%, 100% 59%, 77% 64%, 88% 86%, 65% 77%,
+                     55% 100%, 44% 79%, 22% 94%, 26% 70%, 2% 72%, 18% 54%, 0% 38%, 23% 34%, 14% 11%, 38% 21%);
+}
+.ft.sfx::before { inset: -.42em -.5em -.36em; background: var(--ink, #1a1033); }   /* ink outline of the burst */
+.ft.sfx::after  { inset: -.3em -.38em -.24em;  background: var(--burst); }          /* burst colour */
+
+/* the bigger, bouncier pop: scale .3 → 1.25 → 1 with the random tilt (--rot, set per word by FT.spawn) */
+.ft.sfx:not([style*="transform"]) {
+  rotate: var(--rot, 0deg);
+  animation: sfx-pop .45s cubic-bezier(.2, 1.8, .4, 1) both;
+}
+@keyframes sfx-pop {
+  0%   { scale: .3; }
+  55%  { scale: 1.25; }
+  100% { scale: 1; }
+}
+
+/* ---- per event: fill / burst / size (§6 table) ---- */
+.ft.sfx-beam  { --fill: var(--slime-core, #eaffd0); --burst: var(--slime, #9cff3f);        --size: 30px; }   /* FWOOMP! */
+.ft.sfx-lift  { --fill: var(--poster, #ffd23f);     --burst: var(--bubblegum, #ff6fb5);    --size: 30px; }   /* YOINK! */
+.ft.sfx-bank  { --fill: var(--slime, #9cff3f);      --burst: var(--violet-deep, #6a3fe0);  --size: 30px; }   /* BLORP! */
+.ft.sfx-zap   { --fill: var(--bubblegum, #ff6fb5);  --burst: var(--cream, #fff6e0);        --size: 26px; }   /* ZAP! */
+.ft.sfx-pow   { --fill: var(--poster, #ffd23f);     --burst: var(--tomato, #ff5a4f);       --size: 30px; }   /* POW! */
+.ft.sfx-boom  { --fill: var(--poster, #ffd23f);     --burst: var(--tomato, #ff5a4f);       --size: 38px; }   /* KA-BOOM! */
+.ft.sfx-pylon { --fill: var(--poster, #ffd23f);     --burst: var(--tomato, #ff5a4f);       --size: 40px; }   /* KER-CHUNK! */
+.ft.sfx-hq    { --fill: var(--poster, #ffd23f);     --burst: var(--tomato, #ff5a4f);       --size: 48px; }   /* KA-BLOOEY! */
+.ft.sfx-send  { --fill: var(--slime-core, #eaffd0); --burst: var(--violet, #a77bff);       --size: 30px; }   /* WHOOSH! */
+.ft.sfx-bonk  { --fill: var(--cream, #fff6e0);      --burst: var(--violet, #a77bff);       --size: 28px; }   /* BONK! */
+
+/* the big story beats get a longer, heavier pop */
+.ft.sfx-pylon:not([style*="transform"]),
+.ft.sfx-hq:not([style*="transform"]) { animation-duration: .55s; }
+
+/* small phones: keep the words from covering the action */
+@media (max-width: 640px) {
+  .ft.sfx { font-size: calc(var(--size) * .8); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ft.sfx:not([style*="transform"]) { animation: none; }
+}

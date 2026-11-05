@@ -1,49 +1,59 @@
 // Biomes change how a mission map looks and what lives there.
+// Colours follow the "Moonlit Toybox" guide (docs/ART_STYLE.md §2, §5): candy ground and crops,
+// pastel house walls with candy roofs, and the §4 sky / fog row of each biome.
 import type { Biome } from './earth';
+import { PAL, SKY } from '../gfx/palette';
+import type { SkyDef } from '../gfx/palette';
 
 export interface BiomeDef {
   name: string;
   ground: string; blotches: string[];                 // base ground colour + noise colours (canvas, sRGB)
   fields: [string, string][];                         // crop field colours: [base, stripe]
   pasture: string; road: string; dirt: string; outer: number;
+  plaza: string; base: string;                        // town square around the water tower, army-base ground
+  water: string | null; shore: string;                // farm pond (null = none) and its painted shore ring
   trees: string[]; treeScale: [number, number];       // model ids from assets.ts
   extras: string[];                                   // small scenery props
   farm: string[];                                     // farm animals
   wild: string[];                                     // wild animals (models)
-  fog: number; skyTop: number; skyHorizon: number;
+  sky: SkyDef;                                        // §4 "Sky and fog" row, passed to nightSky()
   houseWalls: string[]; roofs: string[];
 }
 export const BIOMES: Record<Biome, BiomeDef> = {
   temperate: {
-    name: 'Farmland', ground: '#2e4826', blotches: ['#36552b', '#283f21', '#3b5a2c', '#2a4422'],
-    fields: [['#a68d44', '#8d7536'], ['#3f6b2a', '#2f5420'], ['#5a4430', '#4a3626']], pasture: '#3e6b2e', road: '#34363d', dirt: '#6b5a3c', outer: 0x1b2a18,
+    name: 'Farmland', ground: PAL.grass, blotches: PAL.grassBlotches,
+    fields: [['#e8c35a', '#d4a840'], ['#5aa83f', '#478f30'], ['#a8703f', '#8f5c33']], pasture: PAL.pasture, road: PAL.road, dirt: '#b5895a', outer: 0x2f6230,
+    plaza: '#8a86a8', base: '#7d8a52', water: PAL.ocean, shore: '#d9c08a',
     trees: ['tree_pine', 'tree_oak', 'tree_fat', 'tree_autumn'], treeScale: [3.2, 4.6], extras: ['bush', 'rock_small', 'stump', 'flower_red'],
     farm: ['cow', 'cow', 'sheep', 'pig', 'chicken'], wild: ['deer', 'fox'],
-    fog: 0x0b0f24, skyTop: 0x04061a, skyHorizon: 0x2a1f5c,
-    houseWalls: ['#d8cbb0', '#c9b79c', '#b8c4cf', '#e0d6c2', '#c79c84', '#a7b59a'], roofs: ['#7a3b2e', '#4a4f5c', '#5b3a29', '#3d5466'],
+    sky: SKY.temperate,
+    houseWalls: PAL.walls, roofs: PAL.roofs,
   },
   desert: {
-    name: 'Desert', ground: '#8a7048', blotches: ['#9a7d52', '#7c6340', '#a3895c', '#806844'],
-    fields: [['#7f8f3a', '#6a7a2e'], ['#a3884a', '#8c733c'], ['#6e5a3a', '#5e4c30']], pasture: '#8f8a52', road: '#3a3936', dirt: '#a08458', outer: 0x5a4a32,
+    name: 'Desert', ground: '#d8a25c', blotches: ['#e2b06a', '#c99450', '#e8bb78', '#c08a48'],
+    fields: [['#a8c050', '#90a842'], ['#f0c870', '#dcb058'], ['#b87a4c', '#a0683e']], pasture: '#c8b860', road: PAL.road, dirt: '#e8c088', outer: 0xb8864c,
+    plaza: '#d8b0a0', base: '#b09a62', water: null, shore: '#e8c088',
     trees: ['tree_palm', 'cactus', 'cactus'], treeScale: [3.4, 5], extras: ['rock_large', 'rock_small', 'rock_tall', 'cactus'],
     farm: ['sheep', 'chicken', 'cow'], wild: ['fox'],
-    fog: 0x1c1430, skyTop: 0x070820, skyHorizon: 0x4a2a5c,
-    houseWalls: ['#e6d3b0', '#d9c29a', '#efe3c9', '#c9a77c'], roofs: ['#b7643a', '#9c5a3a', '#d9c29a'],
+    sky: SKY.desert,
+    houseWalls: ['#ffe3b8', '#ffd0dc', '#f0e6ff'], roofs: ['#e0533d', '#2fb38a', '#8f5bff'],
   },
   tropical: {
-    name: 'Tropics', ground: '#2a5326', blotches: ['#336a2c', '#24481f', '#3d6e30', '#2b5524'],
-    fields: [['#4f7a3a', '#3f6a5a'], ['#6a8f3a', '#567a2e'], ['#3f6a2a', '#2f5a22']], pasture: '#4a7d36', road: '#3a3a3a', dirt: '#7a5a3a', outer: 0x163018,
+    name: 'Tropics', ground: '#2f9a4a', blotches: ['#36a852', '#278a40', '#40b45c', '#237a38'],
+    fields: [['#7fc840', '#68b034'], ['#b0d850', '#98c040'], ['#3fae6a', '#33985a']], pasture: '#4fb84a', road: PAL.road, dirt: '#c08a5a', outer: 0x237a38,
+    plaza: '#8a86a8', base: '#7d8a52', water: '#28a8d8', shore: '#f0d898',
     trees: ['tree_palm', 'tree_fat', 'tree_oak', 'tree_palm'], treeScale: [3.4, 5.2], extras: ['bush_large', 'bush', 'flower_red'],
     farm: ['pig', 'chicken', 'cow'], wild: ['deer'],
-    fog: 0x0a1424, skyTop: 0x040a1a, skyHorizon: 0x1f3a5c,
-    houseWalls: ['#e8d36a', '#9fd6c8', '#f0b2a0', '#d8e6b0', '#c8d8f0'], roofs: ['#b7643a', '#5b3a29', '#3d6646'],
+    sky: SKY.tropical,
+    houseWalls: ['#d8f0c0', '#c8e6ff', '#ffd0dc', '#ffe3b8', '#f0e6ff'], roofs: ['#e0533d', '#2fb38a', '#3d7be0'],
   },
   cold: {
-    name: 'Snowfields', ground: '#c9d2de', blotches: ['#dfe6ef', '#b8c3d2', '#e8eef5', '#aebacc'],
-    fields: [['#e3e9f1', '#c6cfdb'], ['#d6dde8', '#b9c3d1'], ['#cfd7e3', '#aeb9c8']], pasture: '#d9e1ec', road: '#4a4d55', dirt: '#8a8f99', outer: 0x8c97a8,
-    trees: ['tree_pine', 'tree_pine_tall', 'tree_pine'], treeScale: [3.6, 5.6], extras: ['rock_small', 'rock_large', 'stump'],
+    name: 'Snowfields', ground: PAL.snowGround, blotches: PAL.snowBlotches,
+    fields: [['#c9d6f2', '#aebee6'], ['#d6e0f6', '#bccbec'], ['#c2cff0', '#a9b9e0']], pasture: '#d0dcf6', road: PAL.snowRoad, dirt: '#9a9ac4', outer: 0x9fb0da,
+    plaza: '#a6a2c4', base: '#9a9ec0', water: '#cfe0ff', shore: '#a9b9e0',
+    trees: ['tree_pine_snow', 'tree_pine_tall_snow', 'tree_pine_snow'], treeScale: [3.6, 5.6], extras: ['rock_small', 'rock_large', 'stump'],
     farm: ['sheep', 'cow', 'cow'], wild: ['deer', 'fox'],
-    fog: 0x182238, skyTop: 0x050a1c, skyHorizon: 0x2c3e66,
-    houseWalls: ['#9b3b30', '#3f5f7f', '#d8cbb0', '#6f7f4f'], roofs: ['#e8eef5', '#dfe6ef'],
+    sky: SKY.cold,
+    houseWalls: ['#ffd0dc', '#c8e6ff', '#ffe3b8', '#f0e6ff', '#d8f0c0'], roofs: PAL.roofs,
   },
 };

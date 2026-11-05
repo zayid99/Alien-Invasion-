@@ -1,14 +1,16 @@
 // Model kit: build models from boxes/cylinders/spheres, each part with its own colour,
-// merged into one mesh per material (fast to draw).
+// merged into one mesh per material (fast to draw). Every opaque part is toon shaded and
+// gets an ink outline automatically (docs/ART_STYLE.md §4); glow parts are never inked.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { _c1, _e1, _m1, _q1, _v1, _v2 } from '../core/util';
+import { toonMaterial, inkify, ensureOnormal, type InkOpts } from './toon';
 
 export const MAT = {
-  std: new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.86, metalness: 0.0 }),
-  metal: new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.46, metalness: 0.6, envMapIntensity: 1.0 }),
-  gloss: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.12, metalness: 0.2, envMapIntensity: 2 }),
-  glow: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
+  std: toonMaterial({ vertexColors: true }),                       // matte Earth side: ramp + soft rim
+  metal: toonMaterial({ vertexColors: true, variant: 'metal' }),   // ramp + rim + small hard glint
+  gloss: toonMaterial({ vertexColors: true, variant: 'gloss' }),   // alien side: bigger glint, stronger rim
+  glow: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),   // HDR colour (k > 1 blooms)
 };
 type MatKey = keyof typeof MAT;
 export const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
@@ -44,30 +46,38 @@ export class Kit {
       const L = this.lists[m]; if (!L.length) continue;
       out[m] = L.length === 1 ? L[0] : mergeGeometries(L, false);
       if (L.length > 1) L.forEach(g => g.dispose());
-      out[m].computeBoundingSphere(); this.lists[m] = [];
+      out[m].clearGroups(); out[m].computeBoundingSphere(); this.lists[m] = [];   // a lone primitive keeps its face groups otherwise
+      if (m !== 'glow') ensureOnormal(out[m]);   // smoothed outline normals, once per merged geometry
     }
     return out;
   }
-  /** track: geometry belongs to the current world and is freed when the world is cleared */
-  build(track?: (g: THREE.BufferGeometry) => void) { return meshesFrom(this.geos(), track); }
+  /**
+   * track: geometry belongs to the current world and is freed when the world is cleared.
+   * ink: outline options (e.g. { px: 2.5, fade: false } for the mothership), or false for no outline.
+   */
+  build(track?: (g: THREE.BufferGeometry) => void, ink: InkOpts | false = {}) { return meshesFrom(this.geos(), track, ink); }
 }
-export function meshesFrom(geos: Partial<Record<MatKey, THREE.BufferGeometry>>, track?: (g: THREE.BufferGeometry) => void) {
+export function meshesFrom(geos: Partial<Record<MatKey, THREE.BufferGeometry>>, track?: (g: THREE.BufferGeometry) => void, ink: InkOpts | false = {}) {
   const grp = new THREE.Group();
   for (const m of Object.keys(geos) as MatKey[]) { grp.add(new THREE.Mesh(geos[m], MAT[m])); track?.(geos[m]); }
+  if (ink) inkify(grp, ink);   // std / metal / gloss parts only (glow is MeshBasic and skipped)
   return grp;
 }
 const GEO_CACHE = new Map<string, Partial<Record<MatKey, THREE.BufferGeometry>>>();
-/** Build once, reuse forever (shared geometry). */
-export function cachedModel(key: string, fn: (k: Kit) => void) {
+/** Build once, reuse forever (shared geometry). `ink` as in Kit.build(). */
+export function cachedModel(key: string, fn: (k: Kit) => void, ink: InkOpts | false = {}) {
   if (!GEO_CACHE.has(key)) { const k = new Kit(); fn(k); GEO_CACHE.set(key, k.geos()); }
-  return meshesFrom(GEO_CACHE.get(key));
+  return meshesFrom(GEO_CACHE.get(key), undefined, ink);
 }
 
-// Soft dark blob under things so they look grounded.
+// Toon blob shadow under things so they look grounded: a hard plum oval, solid to 78% of the
+// radius and gone at 86% (§4 "Blob shadows").
 const shadowTex = (() => {
-  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
-  const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-  x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c);
+  const S = 128, c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d');
+  const g = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  g.addColorStop(0, 'rgba(26,16,51,0.42)'); g.addColorStop(0.78, 'rgba(26,16,51,0.42)'); g.addColorStop(0.86, 'rgba(26,16,51,0)'); g.addColorStop(1, 'rgba(26,16,51,0)');
+  x.fillStyle = g; x.fillRect(0, 0, S, S);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 })();
 const shadowGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 const shadowMat = new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, toneMapped: false });

@@ -13,12 +13,20 @@ import { fireAt, alertLevel, raiseAlert, PROJ } from './combat';
 import type { Weapon } from './combat';
 import { spawnHuman, vehicleEMP } from './civilians';
 import { SAY } from './lines';
+import { PAL } from '../gfx/palette';
 
+/**
+ * Earth fire is always orange (docs/ART_STYLE.md §6), as HDR colours that bloom: small arms (pistol, rifle)
+ * HDR (4, 2.4, 0.6); tank shells and missiles HDR (4, 1.6, 0.4). PROJ.fire (combat.ts) also enforces the
+ * Earth-fire colours and the 1.4× shell width for every Earth shooter, so these values only document the
+ * intent and colour the muzzle flash. Ranges, rates, damage and speeds are untouched.
+ */
+export const EARTH_FIRE = { small: new THREE.Color(4, 2.4, 0.6), heavy: new THREE.Color(4, 1.6, 0.4) };
 export const WEAPON: Record<string, Weapon> = {
-  pistol: { range: 30, rate: 1.6, burst: 1, dmg: 1, speed: 80, lead: 0.4, spread: 2.6, color: new THREE.Color(2.2, 1.6, 0.6) },
-  rifle:  { range: 36, rate: 2.0, burst: 3, dmg: 1.05, speed: 95, lead: 0.55, spread: 2.3, color: new THREE.Color(2.2, 1.3, 0.45) },
+  pistol: { range: 30, rate: 1.6, burst: 1, dmg: 1, speed: 80, lead: 0.4, spread: 2.6, color: EARTH_FIRE.small },
+  rifle:  { range: 36, rate: 2.0, burst: 3, dmg: 1.05, speed: 95, lead: 0.55, spread: 2.3, color: EARTH_FIRE.small },
 };
-export const TANK_GUN: Weapon = { speed: 48, lead: 0.7, spread: 0.7, dmg: 11, splash: 3.5, color: new THREE.Color(4, 2, 0.5) };
+export const TANK_GUN: Weapon = { speed: 48, lead: 0.7, spread: 0.7, dmg: 11, splash: 3.5, color: EARTH_FIRE.heavy };
 const lvl = () => G.night ? G.night.level : 1;
 
 export function wreckVehicle(e: Entity) {
@@ -99,12 +107,23 @@ function brainTank(e: Entity, dt: number) {
   if (d < 44 && e.cool <= 0 && Math.abs(angWrap(ang - e.heading - e.turretAngle)) < 0.2) {
     e.cool = 3.6 + rand(0, 0.8);
     const yaw = e.heading + e.turretAngle, from = new V3(e.pos.x + Math.sin(yaw) * 4.3, 2.2, e.pos.z + Math.cos(yaw) * 4.3);
+    // Base width: PROJ.fire (combat.ts) already widens every Earth 'shell' 1.4× (§6), so it is not applied here too.
     fireAt(e, from, P, TANK_GUN, { width: 0.45, trail: 2.5, kind: 'shell', sound: 'cannon' });
-    FX.spark(from, new THREE.Color(4, 2.4, 0.8), 8, 6, 0.6, 0.25, 0); FX.smoke(from, 2, 1, 1, 0.3);
+    FX.spark(from, EARTH_FIRE.heavy, 8, 6, 0.6, 0.25, 0); FX.smoke(from, 2, 1, 1, 0.3);   // orange muzzle flash
   }
 }
 // ---------- missile trucks (Kenney pickup + a missile pod made here) ----------
-const missilePod = () => { const k = new Kit(); k.add(box(1.5, 0.9, 2.2), '#56653a', { p: [0, 0.45, 0], r: [-0.45, 0, 0] }); for (const x of [-0.38, 0.38]) for (const y of [0.15, 0.6]) k.add(cyl(0.17, 0.17, 0.1, 8), '#d24a2a', { p: [x, y + 0.2, 1.0], r: [Math.PI / 2 - 0.45, 0, 0] }); return k.build(); };
+// (Tanks get their toy-army recolour and cream star decal from the model pipeline, core/assets.ts.)
+/** Toy-army missile pod (§5): green box, four tomato missile caps with cream rims; Kit-built, so toon + inked. */
+const missilePod = () => {
+  const k = new Kit();
+  k.add(box(1.5, 0.9, 2.2), PAL.toyArmy, { p: [0, 0.45, 0], r: [-0.45, 0, 0] });
+  for (const x of [-0.38, 0.38]) for (const y of [0.15, 0.6]) {
+    k.add(cyl(0.2, 0.2, 0.08, 8), PAL.cream, { p: [x, y + 0.2, 0.99], r: [Math.PI / 2 - 0.45, 0, 0] });
+    k.add(cyl(0.15, 0.17, 0.14, 8), PAL.tomato, { p: [x, y + 0.2, 1.02], r: [Math.PI / 2 - 0.45, 0, 0] });
+  }
+  return k.build();
+};
 export function spawnMissileTruck() {
   const p = pickEntry(), m = instance('truck'); m.root.position.set(p.x, 0, p.z);
   const pod = missilePod(); pod.position.set(0, 1.3, -1.0); m.root.add(pod);
@@ -122,7 +141,7 @@ function brainMissileTruck(e: Entity, dt: number) {
   if (d < 70 && e.cool <= 0) {
     e.cool = 6.5 + rand(0, 1.5);
     const from = new V3(e.pos.x, 3.2, e.pos.z);
-    PROJ.fire({ from, vel: new V3(Math.sin(ang) * 6, 16, Math.cos(ang) * 6), team: 'earth', dmg: 14, splash: 3, color: new THREE.Color(4, 3.5, 3), width: 0.5, trail: 1.6, kind: 'missile', homing: P, turn: 1.5, life: 7, src: e });
+    PROJ.fire({ from, vel: new V3(Math.sin(ang) * 6, 16, Math.cos(ang) * 6), team: 'earth', dmg: 14, splash: 3, color: EARTH_FIRE.heavy, width: 0.5, trail: 1.6, kind: 'missile', homing: P, turn: 1.5, life: 7, src: e });
     SFX.play('missile', e.pos, 0.1); FX.smoke(from, 3, 1, 1, 0.4);
   }
 }

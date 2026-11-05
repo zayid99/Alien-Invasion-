@@ -1,7 +1,9 @@
 // The mothership: build army units and upgrade the saucer, with Earth turning below.
+// Backdrop per docs/ART_STYLE.md §4/§5/§8: banded space sky, sparkle stars, the toon Earth (same painted map,
+// toon material and stepped atmosphere as the globe), a ringed cartoon planet, mothership light rig.
 import * as THREE from 'three';
 import { G, track } from '../game/state';
-import { camera, scene, LIGHT, makeStars, fresnelMaterial } from '../core/engine';
+import { camera, scene, LIGHT, makeStars, fresnelMaterial, gradientSky } from '../core/engine';
 import { RES, UPGRADES, canAfford, payCost, scaleCost } from '../data/balance';
 import type { UpgradeKey } from '../data/balance';
 import { UNIT_TYPES, UNIT_KEYS, unitPower } from '../data/units';
@@ -13,26 +15,36 @@ import { platform } from '../core/platform';
 import { miniSaucer, makeMothership } from '../gfx/models';
 import { clearWorld } from '../world/maps/common';
 import { armyPower, earthPower, cityLevel, cityState, regionUnlocked, verdict } from '../game/campaign';
-import { earthCanvas, leaveGlobe } from './globe';
-import { $, UI, ICON, costHTML } from '../ui/dom';
+import { earthCanvas, leaveGlobe, hideLabels, makeRingPlanet, renderWallet } from './globe';
+import { toonMaterial, inkify, setRimColor } from '../gfx/toon';
+import { PAL, SKY } from '../gfx/palette';
+import { $, UI, costHTML } from '../ui/dom';
 import { TUT } from '../ui/tutorial';
 
 let space: { earth: THREE.Group; ship: THREE.Object3D; drones: { d: THREE.Object3D; a: number; r: number; y: number }[] } = null;
 
 export function enterMothership() {
-  leaveGlobe();
+  leaveGlobe(); hideLabels();
   clearWorld(); G.mode = 'mothership'; G.paused = false; G.modeTime = 0;
-  scene.fog = null; scene.background = new THREE.Color(0x02030a);
+  // sky (§4 globe / mothership row), stars, lights (§4 mothership row), space rim colour
+  const S = SKY.space;
+  scene.fog = null; scene.background = new THREE.Color(S.bottom);
+  const sky = gradientSky(S.top, S.horizon, S.bottom, 1200); sky.renderOrder = -10; track(sky.geometry, sky.material as THREE.Material); G.world.add(sky);
   const stars = makeStars(2600, 900, -1); track(stars.geometry, stars.material as THREE.Material); G.world.add(stars);
-  const earth = new THREE.Group(), tex = track(new THREE.CanvasTexture(earthCanvas())); tex.colorSpace = THREE.SRGBColorSpace;
-  earth.add(new THREE.Mesh(track(new THREE.SphereGeometry(140, 64, 32)), track(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 }))));
-  earth.add(new THREE.Mesh(track(new THREE.SphereGeometry(146, 64, 32)), track(fresnelMaterial(0x6fb8ff, 3.2, 1))));
+  LIGHT.hemi.color.set(0x8a7cff); LIGHT.hemi.groundColor.set(0x1a1040); LIGHT.hemi.intensity = 0.7;
+  LIGHT.moon.color.set(0xfff1dc); LIGHT.moon.intensity = 3.4; LIGHT.moon.position.set(220, 140, 160);
+  setRimColor(PAL.rimSpace);
+  // Earth: the globe's painted map on a toon sphere, ink 2.5 px without fade, stepped cartoon atmosphere
+  const earth = new THREE.Group(), tex = track(new THREE.CanvasTexture(earthCanvas())); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const ball = new THREE.Mesh(track(new THREE.SphereGeometry(140, 96, 48)), track(toonMaterial({ map: tex })));
+  inkify(ball, { px: 2.5, fade: false }); earth.add(ball);
+  earth.add(new THREE.Mesh(track(new THREE.SphereGeometry(146, 64, 32)), track(fresnelMaterial(0x6fe0ff, 2.6, 0.9, 2, 0.2))));
   earth.position.set(-70, -175, -120); earth.rotation.y = 2.2; G.world.add(earth);
-  const ship = makeMothership(); G.world.add(ship);
+  // the ringed cartoon planet, far out on the other side
+  const planet = makeRingPlanet(26); planet.position.set(380, 120, 460); G.world.add(planet);
+  const ship = makeMothership(); G.world.add(ship);   // inked 2.5 px by the models lane
   space = { earth, ship, drones: [] };
   for (let i = 0; i < 4; i++) { const d = miniSaucer(); d.scale.setScalar(1.4); G.world.add(d); space.drones.push({ d, a: i * 1.57, r: 62 + i * 6, y: -4 + i * 3 }); }
-  LIGHT.hemi.color.set(0x8a7cff); LIGHT.hemi.groundColor.set(0x0a0a20); LIGHT.hemi.intensity = 0.55;
-  LIGHT.moon.color.set(0xfff1dc); LIGHT.moon.intensity = 3.2; LIGHT.moon.position.set(220, 140, 160);
   UI.hud(false); UI.globe(false); UI.show('scr-mothership'); renderMothership();
   SFX.setMusic('calm'); platform.gameplayStop();
   if (!G.save.tutorial.done && G.save.tutorial.ms < 3) startShipTutorial();
@@ -66,13 +78,13 @@ function nextTarget() {
 export function renderMothership() {
   const s = G.save, res = s.res;
   $('ms-sub').textContent = `High orbit · Day ${s.day} · ${s.totals.citiesTaken} cities conquered`;
-  $('ms-wallet').innerHTML = RES.map(r => `<span class="chip ${r}" title="${r}">${ICON(r)}${Math.floor(res[r])}</span>`).join('');
+  renderWallet('ms-wallet');
   $('ms-army').innerHTML = UNIT_KEYS.map(k => {
     const T = UNIT_TYPES[k];
     return `<div class="item"><div class="name">${T.name} <small>×${s.army[k]}</small></div>
       <div class="desc">${T.desc} HP ${T.hp} · power ${unitPower(k)}${T.air ? ' · flies' : ''}</div><div class="cost">${costHTML(T.cost, res)}</div>
-      <div class="acts"><button class="btn" id="btn-build-${k}" data-build="${k}" data-n="1" ${canAfford(res, T.cost) ? '' : 'disabled'}>Build</button>
-      <button class="btn" data-build="${k}" data-n="5" ${canAfford(res, scaleCost(T.cost, 5)) ? '' : 'disabled'}>×5</button></div></div>`;
+      <div class="acts"><button class="btn slime" id="btn-build-${k}" data-build="${k}" data-n="1" ${canAfford(res, T.cost) ? '' : 'disabled'}>Build</button>
+      <button class="btn slime" data-build="${k}" data-n="5" ${canAfford(res, scaleCost(T.cost, 5)) ? '' : 'disabled'}>×5</button></div></div>`;
   }).join('');
   $('ms-upgrades').innerHTML = (Object.keys(UPGRADES) as UpgradeKey[]).map(k => {
     const U = UPGRADES[k], l = s.up[k], max = l >= 4, c = max ? null : U.costs[l];

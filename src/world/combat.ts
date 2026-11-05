@@ -1,7 +1,7 @@
 // Projectiles, aimed shots, Earth's alert level, and lifting things into the saucer.
 import * as THREE from 'three';
 import { G } from '../game/state';
-import { FX, FT } from '../gfx/fx';
+import { FX, FT, FXC } from '../gfx/fx';
 import { SFX } from '../core/audio';
 import { UI } from '../ui/dom';
 import { RES } from '../data/balance';
@@ -9,17 +9,30 @@ import { V3, _v1, _v3, chance, clamp, hdist, rand } from '../core/util';
 import type { Vec3 } from '../core/util';
 import { damageEnt, say } from './entity';
 import type { Entity } from './entity';
-import { damagePlayer } from './player';
+import { damagePlayer, saucerBurp } from './player';
 import { SAY, HUMAN_KINDS, ANIMAL_KINDS } from './lines';
 
-export interface Proj { pos: Vec3; vel: Vec3; team: string; dmg: number; splash: number; life: number; color: THREE.Color; width: number; trail: number; homing: any; turn: number; kind: string; hp: number; src: any; hitAir: boolean; hitGround: boolean }
+export interface Proj { pos: Vec3; vel: Vec3; team: string; dmg: number; splash: number; life: number; color: THREE.Color; width: number; trail: number; homing: any; turn: number; kind: string; hp: number; src: any; hitAir: boolean; hitGround: boolean; puffT: number }
+/**
+ * Earth fire is always orange (§6): small arms HDR (4, 2.4, 0.6); tank shells HDR (4, 1.6, 0.4) at 1.4× width.
+ * Applied here, and only here, so every Earth shooter (military.ts, invasion.ts) follows the rule: shooters pass
+ * the base width. Missiles get a hot yellow head and leave toon puffs.
+ */
+function earthFire(kind: string, width: number) {
+  if (kind === 'shell') return { color: FXC.fireOrange.clone(), width: width * 1.4 };
+  if (kind === 'missile') return { color: FXC.fireYellow.clone(), width };   // white-hot head → poster-orange
+  return { color: FXC.pistol.clone(), width };
+}
 export const PROJ = {
   list: [] as Proj[], _prev: new V3(), _c: new V3(),
   fire(o: { from: Vec3; vel: Vec3; team: string; dmg: number; splash?: number; life?: number; color?: THREE.ColorRepresentation; width?: number; trail?: number; homing?: any; turn?: number; kind?: string; src?: any; hitAir?: boolean; hitGround?: boolean }) {
     if (this.list.length > 300) return;
-    this.list.push({ pos: o.from.clone(), vel: o.vel.clone(), team: o.team, dmg: o.dmg, splash: o.splash || 0, life: o.life || 2.5, color: new THREE.Color(o.color ?? 0xffc36a),
-      width: o.width || 0.18, trail: o.trail || 2.2, homing: o.homing || null, turn: o.turn || 0, kind: o.kind || 'bullet', hp: o.kind === 'missile' ? 1 : 0, src: o.src || null,
-      hitAir: o.hitAir !== false, hitGround: o.hitGround !== false });
+    const kind = o.kind || 'bullet';
+    let color = new THREE.Color(o.color ?? 0xffc36a), width = o.width || 0.18;
+    if (o.team === 'earth') ({ color, width } = earthFire(kind, width));
+    this.list.push({ pos: o.from.clone(), vel: o.vel.clone(), team: o.team, dmg: o.dmg, splash: o.splash || 0, life: o.life || 2.5, color,
+      width, trail: o.trail || 2.2, homing: o.homing || null, turn: o.turn || 0, kind, hp: kind === 'missile' ? 1 : 0, src: o.src || null,
+      hitAir: o.hitAir !== false, hitGround: o.hitGround !== false, puffT: 0 });
   },
   clear() { this.list.length = 0; },
   update(dt: number) {
@@ -28,7 +41,7 @@ export const PROJ = {
       if (p.homing && !p.homing.dead) {
         const sp = p.vel.length(); _v1.copy(p.homing.pos).sub(p.pos).normalize().multiplyScalar(sp);
         p.vel.lerp(_v1, clamp(p.turn * dt, 0, 1)).setLength(sp);
-        if (Math.random() < 0.5) FX.smoke(p.pos, 1, 0.5, 0.7, 0.1);
+        if ((p.puffT -= dt) <= 0) { p.puffT = 0.08; FX.smoke(p.pos, 1, 0.5, 0.7, 0.1); }   // toon trail puff every 0.08 s
       }
       this._prev.copy(p.pos); p.pos.addScaledVector(p.vel, dt);
       const hit = p.pos.y <= 0 ? 'ground' : this.collide(p, this._prev);
@@ -53,7 +66,7 @@ export const PROJ = {
       if (p.team === 'earth' && G.player && hit !== G.player && G.player.pos.distanceTo(p.pos) < p.splash + 5) damagePlayer(p.dmg * 0.4);
     } else FX.spark(p.pos, p.color, 5, 6, 0.25, 0.3);
     if (hit === 'ground') return;
-    if (hit === G.player) damagePlayer(p.dmg); else damageEnt(hit, p.dmg, p.src);
+    if (hit === G.player) { FX.word(p.pos, 'bonk', p.splash > 0 ? 1 : 0.9); damagePlayer(p.dmg); } else damageEnt(hit, p.dmg, p.src);
   },
 };
 FX.addBoltSource(() => PROJ.list);
@@ -85,13 +98,25 @@ export function raiseAlert(n: number) {
 }
 
 // ---------- tractor-beam physics for anything being lifted ----------
+/** Lift-start shouts (§6): 40 % chance of a .ft.say balloon. */
+const LIFT_SHOUT: Record<string, readonly string[]> = { human: ['HELP!', 'Not again!', 'My hat!'], cow: ['MOO?!'], sheep: ['BAA?!'], pig: ['OINK?!'], chicken: ['BAWK!'] };
+/**
+ * A target starts rising in the beam (§6 "Abduction"): the squash and wobble run in entity.ts (liftT), here it
+ * gets a pooled jelly bubble, a YOINK!-style word and maybe a shout.
+ */
+export function liftStart(e: Entity) {
+  e.liftT = 0; FX.bubble(e);
+  FX.word(_v1.copy(e.pos).setY(e.pos.y + e.hh * 2 + 0.5), 'lift');
+  const lines = HUMAN_KINDS.has(e.kind) ? LIFT_SHOUT.human : LIFT_SHOUT[e.kind];
+  if (lines && chance(0.4)) say(e, lines);
+}
 export function updateLift(e: Entity, dt: number) {
   const P = G.player;
   if (e.lift === 1) {
     if (!P || !P.beamOn || P.dead || hdist(e.pos, P.pos) > P.stats.beamRadius * 1.6) { e.lift = 2; e.vy = 0; return; }
     e.pos.y += P.stats.liftSpeed * clamp(2.4 / (1 + e.loot.mass * 0.45), 0.3, 1.3) * dt;
     const k = 1 - Math.exp(-3.2 * dt); e.pos.x += (P.pos.x - e.pos.x) * k; e.pos.z += (P.pos.z - e.pos.z) * k;
-    e.obj.rotation.y += dt * 2.2; e.obj.rotation.z = Math.sin(e.t * 3) * 0.3; e.obj.rotation.x = Math.sin(e.t * 2.3) * 0.2;
+    e.obj.rotation.y += dt * 1.2; e.obj.rotation.z = Math.sin(e.t * 6) * 0.22; e.obj.rotation.x = 0;   // slow spin + jelly wobble
     if (e.model) e.anim('lifted', { speed: 1.4 });
     if (HUMAN_KINDS.has(e.kind) && chance(dt * 0.6)) say(e, SAY.lifted);
     if (e.pos.y >= P.pos.y - 1.9) abductEnt(e);
@@ -99,7 +124,7 @@ export function updateLift(e: Entity, dt: number) {
     e.vy -= 32 * dt; e.pos.y += e.vy * dt;
     if (e.pos.y <= 0) {
       const impact = -e.vy; e.pos.y = 0; e.vy = 0; e.lift = 0; e.obj.rotation.x = 0; e.obj.rotation.z = 0; e.lane = null;
-      if (impact > 9) { e.stun = Math.max(e.stun, 2.5); FX.smoke(e.pos, 2, 0.8, 0.7, 0.5); if (HUMAN_KINDS.has(e.kind)) say(e, ['Ow!', 'My back!', 'Ouch!']); }
+      if (impact > 9) { e.stun = Math.max(e.stun, 2.5); e.jelly = 1; e.jellyT = 0; FX.smoke(e.pos, 2, 0.8, 0.7, 0.5, false); if (HUMAN_KINDS.has(e.kind)) say(e, ['Ow!', 'My back!', 'Ouch!']); }
     }
   }
 }
@@ -109,8 +134,14 @@ export function abductEnt(e: Entity) {
   for (const r of RES) if (L[r]) into[r] += L[r];
   if (G.mode !== 'invasion') G.cargo.mass += L.mass; else for (const r of RES) if (L[r]) G.save.totals[r] += L[r];
   const r = RES.find(k => L[k]);
-  FT.spawn(P.pos.clone().setY(P.pos.y - 2), e.artifact ? `Artifact: ${e.artifact}!` : `+${L[r]} ${r}`, e.artifact ? 'humans' : r, 1.2, 3);
-  FX.spark(_v1.copy(P.pos).setY(P.pos.y - 1.6), new THREE.Color(2.2, 1.2, 3.5), 14, 7, 0.35, 0.45, 0);
+  // arrival (§6): the bubble pops, 8 poster star sparks + 10 slime sparks, BLORP!, a "+N" float in the resource
+  // colour, and the saucer burps (the HUD chip pop is driven by hud.ts when the value changes)
+  const at = _v1.copy(P.pos).setY(P.pos.y - 1.6);
+  FX.popBubble(e);
+  FX.spark(at, FXC.poster, 8, 7, 0.35, 0.45, 0); FX.spark(at, FXC.slime, 10, 6, 0.3, 0.45, 0);
+  FX.word(_v3.copy(P.pos).setY(P.pos.y - 3.2), 'bank');
+  FT.spawn(P.pos.clone().setY(P.pos.y - 2), e.artifact ? `Artifact: ${e.artifact}!` : `+${L[r]}`, e.artifact ? 'humans' : r, 1.2, 3);
+  saucerBurp();
   SFX.play('abduct', null, 0.05); P.pulse = 1;
   const stats = G.mode === 'invasion' ? G.inv.stats : G.night.stats;
   const cat = HUMAN_KINDS.has(e.kind) ? 'humans' : ANIMAL_KINDS.has(e.kind) ? 'animals' : e.artifact ? 'artifacts' : 'vehicles';

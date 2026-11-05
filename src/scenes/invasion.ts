@@ -18,13 +18,19 @@ import { updateEnts } from '../world/entity';
 import { PROJ, updateLift } from '../world/combat';
 import { cityLevel, cityCaptured, invasionFailed, advanceDay } from '../game/campaign';
 import { $, UI } from '../ui/dom';
-import { updateHUD, drawMinimap, renderDeployBar } from '../ui/hud';
+import { updateHUD, drawMinimap, renderDeployBar, setTimer } from '../ui/hud';
+import { TUT } from '../ui/tutorial';
+import { PAL } from '../gfx/palette';
 import { leaveGlobe } from './globe';
 
-export const invasionScene = { city: null as City, emblem: null as THREE.Object3D, done: (_won: boolean) => {} };
+export const invasionScene = {
+  city: null as City, emblem: null as THREE.Object3D, done: (_won: boolean) => {},
+  /** Screen point the iris closes on when the battle ends (main.ts: the saucer). */
+  irisFrom: (): { x: number; y: number } | undefined => undefined,
+};
 
 export function startInvasion(city: City) {
-  leaveGlobe();
+  leaveGlobe(); TUT.leaveScene(); UI.clearGlobe();   // §7 scene hygiene: no globe UI, labels or Earth tutorial in battle
   invasionScene.city = city;
   buildCity(hashString(city.id), city.size);
   G.mode = 'invasion'; G.paused = false; G.modeTime = 0; G.cargo = { humans: 0, biomass: 0, metal: 0, mass: 0 };
@@ -43,7 +49,7 @@ export function updateInvasion(dt: number) {
   updatePlayer(dt); updateEnts(dt, updateLift); PROJ.update(dt); separateUnits(); updateWaves(dt); updateCamera(dt);
   const n = tickInvasion(dt); armyObjective();
   $('objective').textContent = I.pylonsLeft > 0 ? `Destroy the shield pylons: ${I.pylonsLeft} left` : I.hq.hp > 0 ? `Destroy the defense HQ: ${Math.ceil(I.hq.hp / I.hq.maxHp * 100)}% left` : `${invasionScene.city.name} has fallen!`;
-  UI.set('timer', 'text', `${n} unit${n === 1 ? '' : 's'}`);
+  setTimer(`${n} unit${n === 1 ? '' : 's'}`);   // Lilita counter, one fixed-width cell per digit
   if ((I.deployT = (I.deployT || 0) - dt) <= 0) { I.deployT = 0.5; renderDeployBar(); }
   for (const k of UNIT_KEYS) if (INPUT.hit('Digit' + UNIT_TYPES[k].key)) deployUnit(k);
   updateHUD(); drawMinimap();
@@ -56,10 +62,16 @@ function winInvasion() {
   surrenderAll();
   G.mode = 'victory'; G.modeTime = 0; SFX.stopLoops(); SFX.setMusic('none'); SFX.play('fanfare'); platform.gameplayStop(); platform.happytime();
   UI.hud(false); UI.hideComm(); BEAM.hide();
+  // Victory emblem: the Gray Empire sigil in the brand colours (slime outer ring = alien signature, poster inner
+  // ring = triumph, violet face = Empire tech), with Zix's black eyes and their white catchlights (§5).
   const k = new Kit();
-  k.add(new THREE.TorusGeometry(14, 0.8, 8, 48), '#c58bff', { m: 'glow', k: 3 }); k.add(new THREE.TorusGeometry(9, 0.5, 8, 40), '#ffd65c', { m: 'glow', k: 3 });
-  k.add(sph(3.2, 16, 10), '#e8d6ff', { s: [1, 1.3, 0.4], m: 'glow', k: 2 });
-  for (const sx of [-1, 1]) k.add(sph(1.1, 10, 8), '#05060b', { p: [sx * 1.2, 0.6, 1.1], r: [0, 0, -0.6 * sx], s: [1, 1.6, 0.5] });
+  k.add(new THREE.TorusGeometry(14, 0.8, 8, 48), PAL.slime, { m: 'glow', k: 2.6 }); k.add(new THREE.TorusGeometry(9, 0.5, 8, 40), PAL.poster, { m: 'glow', k: 2.4 });
+  k.add(sph(3.2, 16, 10), PAL.violet, { s: [1, 1.3, 0.4], m: 'glow', k: 2 });
+  for (const sx of [-1, 1]) {
+    k.add(sph(1.1, 10, 8), PAL.alienEye, { p: [sx * 1.2, 0.6, 1.1], r: [0, 0, -0.6 * sx], s: [1, 1.6, 0.5], m: 'gloss' });
+    k.add(sph(0.26, 8, 6), '#ffffff', { p: [sx * 1.45, 1.3, 1.62], m: 'glow', k: 1.2 });   // upper-outer catchlight
+    k.add(sph(0.13, 6, 5), '#ffffff', { p: [sx * 0.95, 0.15, 1.62], m: 'glow', k: 1.2 });  // lower-inner catchlight
+  }
   invasionScene.emblem = k.build(g => G.disposables.push(g)); invasionScene.emblem.position.set(0, 60, 0); G.world.add(invasionScene.emblem);
   setTimeout(() => endInvasion(true), 6500);
 }
@@ -72,7 +84,8 @@ export function updateVictory(dt: number) {
 export function endInvasion(won: boolean) {
   if (G.mode === 'end') return;
   const I = G.inv, s = G.save, city = invasionScene.city; I.over = true;
-  SFX.stopLoops(); platform.gameplayStop(); G.mode = 'end'; UI.hud(false);
+  const from = won ? undefined : invasionScene.irisFrom();   // a defeat closes on the warping saucer
+  SFX.stopLoops(); platform.gameplayStop(); G.mode = 'end'; BEAM.hide();
   if (won) cityCaptured(city); else invasionFailed(city);
   const report = advanceDay(); writeSave(s);
   const row = (k: string, v: string | number, cls = '') => `<dt>${k}</dt><dd class="${cls}">${v}</dd>`;
@@ -84,6 +97,7 @@ export function endInvasion(won: boolean) {
   $('end-lede').textContent = won ? `${city.name} now serves the Gray Empire.${report.unlocked ? ` New regions unlocked: ${report.unlocked}!` : ''} Its people's first job: a statue of Commander Zix.`
     : 'Your saucer warped out. Surviving units are back on the mothership, and the city is on high alert (its defense level went up by 1).';
   $('end-body').innerHTML = html; $('btn-end').textContent = 'Back to Earth';
-  UI.show('scr-end'); SFX.play(won ? 'fanfare' : 'sad');
+  SFX.play(won ? 'fanfare' : 'sad');
   invasionScene.done(won);
+  UI.iris(() => { UI.hud(false); UI.hideComm(); UI.show('scr-end'); }, from);
 }

@@ -4,11 +4,11 @@ import { G, track } from '../game/state';
 import { DEFENDER, earthForces, canAfford, payCost, costText } from '../data/balance';
 import { UNIT_TYPES } from '../data/units';
 import type { UnitKey } from '../data/units';
-import { fresnelMaterial } from '../core/engine';
 import { instance } from '../core/assets';
 import { Kit, box, cyl, sph } from '../gfx/kit';
 import { makeGrayAlien, miniSaucer, makeWalker, whiteFlag } from '../gfx/models';
-import { FX } from '../gfx/fx';
+import { FX, FXC, shellMaterial } from '../gfx/fx';
+import { PAL } from '../gfx/palette';
 import { SFX } from '../core/audio';
 import { UI } from '../ui/dom';
 import { V3, _v1, _v2, angTo, angWrap, chance, damp, hdist, pick, rand } from '../core/util';
@@ -19,14 +19,17 @@ import type { Weapon } from './combat';
 import { spawnHuman } from './civilians';
 import { spawnTank, smokeIfWrecked, wreckVehicle, aimNode } from './military';
 import { FLOW_CELL, PYLON_SPOTS, flowField, flowDir, blockedGrid } from './maps/city';
-import { SAY } from './lines';
 
 export const invasionHooks = { onWin: () => {}, onDeploy: () => {} };
-const INV_RIFLE: Weapon = { range: 26, rate: 1, burst: 1, dmg: DEFENDER.soldier.dmg, speed: 90, lead: 0.6, spread: 1.0, color: new THREE.Color(3, 1.8, 0.6) };
-const INV_CANNON: Weapon = { speed: 55, lead: 0.7, spread: 0.5, dmg: DEFENDER.tank.dmg, splash: 4, color: new THREE.Color(4, 2, 0.5) };
-const FLAK: Weapon = { speed: 80, lead: 0.85, spread: 0.8, dmg: DEFENDER.turret.dmg, color: new THREE.Color(4, 1.1, 0.7) };
-const MECH_GUN: Weapon = { speed: 70, lead: 0.6, spread: 0.7, dmg: 14, splash: 3, color: new THREE.Color(4, 0.8, 2.4) };
-const PLASMA = { speed: 72, lead: 0.5, spread: 0.55, color: new THREE.Color(2.4, 1.2, 4.2) };
+// Earth fire is always orange (§6): small arms HDR (4, 2.4, 0.6), cannons HDR (4, 1.6, 0.4). (PROJ.fire enforces it too.)
+const INV_RIFLE: Weapon = { range: 26, rate: 1, burst: 1, dmg: DEFENDER.soldier.dmg, speed: 90, lead: 0.6, spread: 1.0, color: FXC.pistol };
+const INV_CANNON: Weapon = { speed: 55, lead: 0.7, spread: 0.5, dmg: DEFENDER.tank.dmg, splash: 4, color: FXC.fireOrange };
+const FLAK: Weapon = { speed: 80, lead: 0.85, spread: 0.8, dmg: DEFENDER.turret.dmg, color: FXC.fireOrange };
+const MECH_GUN: Weapon = { speed: 70, lead: 0.6, spread: 0.7, dmg: 14, splash: 3, color: FXC.fireOrange };
+// Your army's blasters are slime (the clone blaster tip is a slime glow, §5); never orange.
+const PLASMA = { speed: 72, lead: 0.5, spread: 0.55, color: FXC.slime };
+/** Surrender lines (§6 `.ft.say`). */
+const SURRENDER = ['I GIVE UP!', 'WE SURRENDER!', 'TAKE THE TANK!'];
 
 export function losClear(a: { x: number; z: number }, b: { x: number; z: number }, endSkip = 4) {
   const B = G.inv && G.inv.grid; if (!B) return true;
@@ -40,39 +43,52 @@ export function losClear(a: { x: number; z: number }, b: { x: number; z: number 
 const flowFor = (obj: Entity) => { const I = G.inv; if (!I.flows.has(obj)) I.flows.set(obj, flowField(obj.pos, obj.r + 8)); return I.flows.get(obj); };
 
 function spawnHQ(hp: number) {
+  // §5 HQ: walls #dfe4f2, upper tier #c8d0e8, tomato gloss dome (the big target), #bfe3ff window band (Earth
+  // windows k ≤ 1.3, so it never blooms), red siren beacon k 3. Kit meshes are toon + inked automatically.
   const k = new Kit();
-  k.add(cyl(16, 17, 10, 28), '#8a909c', { p: [0, 5, 0] });
-  for (let i = 0; i < 28; i++) { const a = i / 28 * Math.PI * 2; k.add(box(2.2, 1.4, 0.2), '#bfe3ff', { p: [Math.cos(a) * 16.6, 6.5, Math.sin(a) * 16.6], r: [0, Math.PI / 2 - a, 0], m: 'glow', k: 2.2 }); }
-  k.add(cyl(11, 12, 8, 24), '#9aa1ad', { p: [0, 14, 0] });
-  k.add(sph(9, 22, 10), '#c3c9d4', { p: [0, 18, 0], s: [1, 0.55, 1], m: 'metal' });
-  k.add(cyl(0.5, 0.7, 16, 6), '#6c717c', { p: [0, 29, 0], m: 'metal' }); k.add(sph(0.7, 8, 6), '#ff3030', { p: [0, 37.5, 0], m: 'glow', k: 5 });
-  k.add(box(7, 4.5, 1.4), '#4a4f5a', { p: [0, 2.25, 16.6] });
+  k.add(cyl(16, 17, 10, 28), '#dfe4f2', { p: [0, 5, 0] });
+  for (let i = 0; i < 28; i++) { const a = i / 28 * Math.PI * 2; k.add(box(2.2, 1.4, 0.2), '#bfe3ff', { p: [Math.cos(a) * 16.6, 6.5, Math.sin(a) * 16.6], r: [0, Math.PI / 2 - a, 0], m: 'glow', k: 1.3 }); }
+  k.add(cyl(11, 12, 8, 24), '#c8d0e8', { p: [0, 14, 0] });
+  k.add(sph(9, 22, 10), PAL.tomato, { p: [0, 18, 0], s: [1, 0.55, 1], m: 'gloss' });
+  k.add(cyl(0.5, 0.7, 16, 6), '#8a90b8', { p: [0, 29, 0], m: 'metal' }); k.add(sph(0.7, 8, 6), PAL.tomato, { p: [0, 37.5, 0], m: 'glow', k: 3 });
+  k.add(box(7, 4.5, 1.4), PAL.streetPole, { p: [0, 2.25, 16.6] });
   const obj = k.build(g => G.disposables.push(g));
   const e = makeEnt('hq', obj, { r: 16, hh: 9, team: 'earth', hp, mini: '#ff4a3a', miniR: 8, shadow: 0.01 });
   e.lootable = false; e.zap = true; e.structure = true; e.domeFlash = 0;
-  e.dome = new THREE.Mesh(track(new THREE.SphereGeometry(30, 40, 20)), track(fresnelMaterial(0x6fd0ff, 1.8, 0.85))); G.world.add(e.dome);
+  // HQ shield: stepped earth-cyan fresnel (§6); hit = white flash 80 ms + wobble (amplitude scaled to its 30 m radius)
+  e.dome = new THREE.Mesh(track(new THREE.SphereGeometry(30, 40, 20)), track(shellMaterial(PAL.earthCyan, 1.8, 0.85, { wobAmp: 0.9 }))); G.world.add(e.dome);
+  e.domeHitT = 9;
   e.onDamage = (h: Entity, dmg: number, src: any) => {
-    if (G.inv.pylonsLeft > 0) { h.domeFlash = 1; if (src === 'player' && (h.blockT || 0) < G.time) { h.blockT = G.time + 4; UI.toast('Shielded! Destroy the 3 pylons first', 'warn'); } return; }
+    if (G.inv.pylonsLeft > 0) {
+      h.domeFlash = 1; if (h.domeHitT > 0.6) h.domeHitT = 0;   // flash + wobble at most every 0.6 s (army fire is constant)
+      if (src === 'player' && (h.blockT || 0) < G.time) { h.blockT = G.time + 4; UI.toast('Shielded! Destroy the 3 pylons first', 'warn'); }
+      return;
+    }
     if (h.hp <= 0) return;
     h.hp -= dmg; if (chance(0.15)) FX.smoke(_v1.set(rand(-12, 12), rand(8, 20), rand(-12, 12)), 1, 2, 1.6, 1);
-    if (h.hp <= 0) { h.hp = 0; invasionHooks.onWin(); }
+    if (h.hp <= 0) { h.hp = 0; FX.word(_v1.set(0, 26, 0), 'hq', 3); invasionHooks.onWin(); }
   };
   G.obstacles.push({ minX: -16, maxX: 16, minZ: -16, maxZ: 16 });
   return e;
 }
 function spawnPylon(x: number, z: number, hp: number) {
+  // §5 pylon: base #4a4466, white gloss shaft with 3 tomato hazard bands, earth-cyan glow rings k 2.4, HDR cyan core
   const k = new Kit();
-  k.add(box(7, 1.6, 7), '#5c6170', { p: [0, 0.8, 0], m: 'metal' }); k.add(cyl(1.1, 2.3, 18, 8), '#7d8494', { p: [0, 10.6, 0], m: 'metal' });
-  for (const y of [6, 12, 17]) k.add(new THREE.TorusGeometry(2.2 - y * 0.05, 0.22, 5, 14), '#4fd2ff', { p: [0, y, 0], r: [Math.PI / 2, 0, 0], m: 'glow', k: 2.4 });
+  k.add(box(7, 1.6, 7), PAL.streetPole, { p: [0, 0.8, 0], m: 'metal' }); k.add(cyl(1.1, 2.3, 18, 8), '#eef0f8', { p: [0, 10.6, 0], m: 'gloss' });
+  const shaftR = (y: number) => 2.3 - (y - 1.6) / 18 * 1.2;   // shaft radius at height y
+  for (const y of [3.6, 9, 14.6]) k.add(cyl(shaftR(y + 0.45) + 0.1, shaftR(y - 0.45) + 0.1, 0.9, 8), PAL.tomato, { p: [0, y, 0] });
+  for (const y of [6, 12, 17]) k.add(new THREE.TorusGeometry(2.2 - y * 0.05, 0.22, 5, 14), PAL.earthCyan, { p: [0, y, 0], r: [Math.PI / 2, 0, 0], m: 'glow', k: 2.4 });
   const obj = k.build(g => G.disposables.push(g));
-  const core = new THREE.Mesh(track(new THREE.IcosahedronGeometry(1.8, 1)), track(new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 2.4, 4), toneMapped: false }))); core.position.y = 21.5; obj.add(core);
+  const core = new THREE.Mesh(track(new THREE.IcosahedronGeometry(1.8, 1)), track(new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 2.6, 3.2), toneMapped: false }))); core.position.y = 21.5; obj.add(core);   // glow: never inked
   obj.position.set(x, 0, z);
   const e = makeEnt('pylon', obj, { r: 3.6, hh: 10, team: 'earth', hp, mini: '#ff4a3a', miniR: 5, shadow: 8 });
   e.lootable = false; e.zap = true; e.structure = true; e.core = core;
   const from = new V3(x, 21.5, z), to = new V3(0, 30, 0), len = from.distanceTo(to);
-  e.link = new THREE.Mesh(track(new THREE.CylinderGeometry(0.35, 0.35, len, 6, 1, true)), track(new THREE.MeshBasicMaterial({ color: new THREE.Color(0.5, 2, 3.5), transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })));
+  // link beam to the HQ: Earth orange, additive (never inked)
+  e.link = new THREE.Mesh(track(new THREE.CylinderGeometry(0.35, 0.35, len, 6, 1, true)), track(new THREE.MeshBasicMaterial({ color: new THREE.Color(PAL.earthOrange).multiplyScalar(2.2), transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })));
   e.link.position.copy(from).add(to).multiplyScalar(0.5); e.link.quaternion.setFromUnitVectors(new V3(0, 1, 0), to.clone().sub(from).normalize()); G.world.add(e.link);
   e.onDeath = () => {
+    FX.word(new V3(x, 24, z), 'pylon', 2.4);   // KER-CHUNK! first, so it wins over the explosion's own word
     FX.explode(new V3(x, 12, z), 2.4); setTimeout(() => FX.explode(new V3(x, 22, z), 1.6), 250); SFX.play('pylon');
     G.world.remove(e.link); e.obj.rotation.x = 0.3; e.obj.position.y = -2.5; e.core.visible = false; e.mini = '#77707a';
     const I = G.inv; I.pylonsLeft--; I.objective = null;
@@ -112,9 +128,26 @@ function brainTurret(e: Entity, dt: number) {
 }
 function surrender(e: Entity) {
   e.hp = 0; e.speed = 0; e.mini = '#ffd65c'; e.target = null;
-  if (!e.flag) { const f = whiteFlag(); f.position.set(0.5, 1.2, 0); e.obj.add(f); e.flag = f; }
-  e.anim('wave'); say(e, SAY.surrender, 'say', 2.2); SFX.play('surrender', e.pos, 0.2);
+  if (!e.flag) { const f = whiteFlag(); f.position.set(0.5, 1.2, 0); e.obj.add(f); e.flag = f; popFlag(e, f); }
+  e.anim('wave'); say(e, SURRENDER, 'say', 2.2); SFX.play('surrender', e.pos, 0.2);
   if (G.inv) G.inv.stats.surrendered++;
+}
+/**
+ * Surrender flag (§6, §9): pops 0 → 1.2 → 1 over 0.3 s with 4 confetti sparks (poster, bubblegum, slime). The cloth
+ * flutter (rotation.y = sin(t·4·2π)·0.25) is built into whiteFlag() itself (models.ts), so it is not added here.
+ * Driven by an FX tween, which keeps running in the victory scene and is cleared with the world.
+ */
+const CONFETTI = [FXC.poster, FXC.bubblegum, FXC.slime, FXC.poster];
+function popFlag(e: Entity, f: THREE.Object3D) {
+  const base = f.scale.x; let t = 0; f.scale.setScalar(0.001);
+  for (const c of CONFETTI) FX.spark(_v1.copy(e.pos).setY(e.pos.y + 2.4), c, 1, 5, 0.35, 0.8, -8);
+  FX.tween(dt => {
+    if (e.dead || !e.obj.parent || f.parent !== e.obj) { f.scale.setScalar(base); return false; }
+    t += dt;
+    const k = t < 0.18 ? 1.2 * Math.sin(t / 0.18 * Math.PI / 2) : t < 0.3 ? 1.2 - 0.2 * (t - 0.18) / 0.12 : 1;
+    f.scale.setScalar(base * Math.max(0.001, k));
+    return t < 0.3;   // done once it has settled at full size
+  });
 }
 function spawnDefender(kind: 'soldier' | 'tank' | 'mech', x: number, z: number, aggressive = false) {
   if (kind === 'soldier') {
@@ -159,7 +192,7 @@ function brainDefTank(e: Entity, dt: number) {
   if (d < DEFENDER.tank.range && e.cool <= 0 && Math.abs(angWrap(ang - e.heading - e.turretAngle)) < 0.2) {
     e.cool = 1 / DEFENDER.tank.rate + rand(0, 0.6);
     const yaw = e.heading + e.turretAngle, from = new V3(e.pos.x + Math.sin(yaw) * 4.3, 2.2, e.pos.z + Math.cos(yaw) * 4.3);
-    fireAt(e, from, T, INV_CANNON, { width: 0.45, trail: 2.5, kind: 'shell', sound: 'cannon', hitAir: false }); FX.spark(from, new THREE.Color(4, 2.4, 0.8), 8, 6, 0.6, 0.25, 0);
+    fireAt(e, from, T, INV_CANNON, { width: 0.45, trail: 2.5, kind: 'shell', sound: 'cannon', hitAir: false }); FX.spark(from, FXC.fireYellow, 6, 6, 0.75, 0.25, 0);
   }
 }
 function brainMech(e: Entity, dt: number) {
@@ -185,12 +218,12 @@ export function spawnUnit(type: UnitKey, x: number, z: number, drop = false) {
     e.legs = legs;
   }
   e.type = T; e.utype = type; e.retarget = rand(0, 0.4); e.lootable = false; e.punchT = 0; e.onDeath = unitDown;
-  if (drop) { FX.pillar(e.pos, 0xc58bff, 120, 0.9, T.radius + 0.6); e.pos.y = T.air ? 30 : 16; e.dropping = true; SFX.play('deploy'); }
+  if (drop) { FX.pillar(e.pos, PAL.violet, 120, 0.9, T.radius + 0.6); e.pos.y = T.air ? 30 : 16; e.dropping = true; SFX.play('deploy'); }   // Empire tech drop
   return e;
 }
 function unitDown(e: Entity) {
   e.dead = true;
-  FX.pillar(e.pos, 0xc58bff, 50, 0.6, e.r + 0.5); FX.spark(_v1.copy(e.pos).setY(e.pos.y + 1.5), new THREE.Color(2.5, 1.4, 4), 14, 8, 0.4, 0.5);
+  FX.pillar(e.pos, PAL.violet, 50, 0.6, e.r + 0.5); FX.spark(_v1.copy(e.pos).setY(e.pos.y + 1.5), FXC.violet, 10, 8, 0.5, 0.5);
   if (e.utype === 'walker' || e.utype === 'saucer') FX.explode(_v1.copy(e.pos).setY(e.pos.y + (e.utype === 'walker' ? 8 : 0)), e.utype === 'walker' ? 1.8 : 0.8);
   G.save.army[e.utype] = Math.max(0, G.save.army[e.utype] - 1); G.save.totals.unitsLost++; G.inv.stats.lost++;
 }
@@ -216,7 +249,7 @@ export function armyObjective() {
 const _fd = new V3();
 function brainUnit(e: Entity, dt: number) {
   const T = e.type;
-  if (e.dropping) { const gy = T.air ? 12 : 0; e.pos.y = damp(e.pos.y, gy, 5, dt); if (Math.abs(e.pos.y - gy) < 0.3) { e.pos.y = gy; e.dropping = false; FX.spark(e.pos, new THREE.Color(2.5, 1.4, 4), 10, 6, 0.4, 0.4, 0); } return; }
+  if (e.dropping) { const gy = T.air ? 12 : 0; e.pos.y = damp(e.pos.y, gy, 5, dt); if (Math.abs(e.pos.y - gy) < 0.3) { e.pos.y = gy; e.dropping = false; e.jelly = 1; e.jellyT = 0; FX.spark(e.pos, FXC.slime, 7, 6, 0.5, 0.4, 0); } return; }   // landing: slime splash + jelly squash
   e.retarget -= dt;
   if (e.retarget <= 0 || !e.target || e.target.dead || e.target.hp <= 0) { e.retarget = 0.35 + rand(0, 0.25); e.target = findEarthTarget(e, T.range + 14); }
   const obj = armyObjective(); let tgt = e.target, moving = false;
@@ -241,10 +274,10 @@ function brainUnit(e: Entity, dt: number) {
 }
 function unitAttack(e: Entity, tgt: Entity) {
   const T = e.type, aim = new V3(tgt.pos.x, tgt.pos.y + (tgt.hh || 0), tgt.pos.z);
-  if (e.utype === 'brute') { e.punchT = 0.35; damageEnt(tgt, T.dmg, e); FX.spark(aim.setY(Math.min(aim.y, 2)), new THREE.Color(3, 3, 3), 5, 5, 0.3, 0.25); SFX.play('hit', e.pos, 0.15); return; }
+  if (e.utype === 'brute') { e.punchT = 0.35; damageEnt(tgt, T.dmg, e); FX.spark(aim.setY(Math.min(aim.y, 2)), FXC.poster, 5, 5, 0.4, 0.25); SFX.play('hit', e.pos, 0.15); return; }
   if (e.utype === 'walker') {
     const from = new V3(e.pos.x + Math.sin(e.heading) * 3, 8.8, e.pos.z + Math.cos(e.heading) * 3);
-    FX.line(from, aim, new THREE.Color(4, 2, 0.6), 0.8, 0.2); FX.explode(aim, 0.7, true); SFX.play('cannon', e.pos, 0.1); damageEnt(tgt, T.dmg, e);
+    FX.line(from, aim, FXC.violet, 0.8, 0.2); FX.explode(aim, 0.7, true); SFX.play('cannon', e.pos, 0.1); damageEnt(tgt, T.dmg, e);   // walker cannon: Empire violet, never orange
     for (const o of G.ents) if (o !== tgt && o.team === 'earth' && !o.dead && o.hp > 0 && hdist(o.pos, aim) < T.splash) damageEnt(o, T.dmg * 0.5, e);
     return;
   }
@@ -296,6 +329,8 @@ export function tickInvasion(dt: number) {
   for (const e of G.ents) if (e.team === 'alien' && !e.dead) { I.center.add(e.pos); n++; }
   if (n) I.center.multiplyScalar(1 / n); else I.center.copy(G.player.pos);
   const hq = I.hq, dome = hq.dome; hq.domeFlash = Math.max(0, hq.domeFlash - dt * 2); dome.material.uniforms.time.value = G.time;
+  hq.domeHitT += dt; const du = dome.material.uniforms;
+  du.flash.value = hq.domeHitT < 0.08 ? 1 : 0; du.wob.value = hq.domeHitT < 1 ? Math.exp(-6 * hq.domeHitT) : 0;   // hit flash + wobble
   if (I.pylonsLeft > 0) dome.material.uniforms.opacity.value = 0.55 + hq.domeFlash * 0.4 + Math.sin(G.time * 3) * 0.05;
   else { dome.scale.multiplyScalar(1 - dt * 1.5); dome.material.uniforms.opacity.value *= 1 - dt * 2; if (dome.scale.x < 0.05) dome.visible = false; }
   for (const p of I.pylons) if (p.hp > 0) { p.core.rotation.y += dt * 2; p.core.scale.setScalar(1 + Math.sin(G.time * 4 + p.pos.x) * 0.12); p.link.material.opacity = 0.5 + Math.sin(G.time * 10 + p.pos.x) * 0.2; }

@@ -6,9 +6,11 @@
 <title>Alien Invasion</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Play a gray alien commander: abduct humans, cows and cars, build an army on your mothership and conquer every city on Earth.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&family=Share+Tech+Mono&display=swap">
+<meta name="theme-color" content="#0f0828">
+<!-- Fonts are self-hosted (@fontsource, imported at the top of src/style.css). Vite fingerprints these two
+     preloads to the same files the CSS uses, so Lilita One and Fredoka 600 start downloading before the CSS. -->
+<link rel="preload" as="font" type="font/woff2" crossorigin href="./node_modules/@fontsource/lilita-one/files/lilita-one-latin-400-normal.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="./node_modules/@fontsource/fredoka/files/fredoka-latin-600-normal.woff2">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -16,10 +18,17 @@
     <symbol id="i-humans" viewBox="0 0 24 24"><circle cx="12" cy="6" r="3.4"/><path d="M5.5 21v-5c0-3.2 2.8-5.6 6.5-5.6s6.5 2.4 6.5 5.6v5z"/></symbol>
     <symbol id="i-biomass" viewBox="0 0 24 24"><path d="M7 2.5c0 5.5 10 5.5 10 9.5s-10 4-10 9.5M17 2.5c0 5.5-10 5.5-10 9.5s10 4 10 9.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.6 6.5h6.8M8.6 17.5h6.8M10 12h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
     <symbol id="i-metal" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 8.6a3.4 3.4 0 1 0 0 6.8a3.4 3.4 0 1 0 0-6.8zm8.6 4.5v-2.2l-2.4-.5a6.8 6.8 0 0 0-.7-1.7l1.3-2.1-1.6-1.6-2.1 1.3a6.8 6.8 0 0 0-1.7-.7l-.5-2.4h-2.2l-.5 2.4a6.8 6.8 0 0 0-1.7.7L6.4 5l-1.6 1.6 1.3 2.1a6.8 6.8 0 0 0-.7 1.7l-2.4.5v2.2l2.4.5c.2.6.4 1.2.7 1.7l-1.3 2.1L6.4 19l2.1-1.3c.5.3 1.1.5 1.7.7l.5 2.4h2.2l.5-2.4c.6-.2 1.2-.4 1.7-.7l2.1 1.3 1.6-1.6-1.3-2.1c.3-.5.5-1.1.7-1.7z"/></symbol>
+    <!-- Two-tone saucer glyph (title i-dot, tutorial badge, Mothership button, iris). Fixed candy colours + ink outline. -->
+    <symbol id="i-saucer" viewBox="0 0 32 24"><path d="M9.5 12.5a6.5 6.5 0 0 1 13 0z" fill="#8ff4ff" stroke="#1a1033" stroke-width="2" stroke-linejoin="round"/><circle cx="13.6" cy="8.6" r="1.2" fill="#fff"/><ellipse cx="16" cy="14.5" rx="14" ry="5" fill="#d9def0" stroke="#1a1033" stroke-width="2"/><circle cx="8.5" cy="15" r="1.5" fill="#ff6fb5"/><circle cx="16" cy="16.2" r="1.5" fill="#ffd23f"/><circle cx="23.5" cy="15" r="1.5" fill="#9cff3f"/></symbol>
+    <!-- One-colour glyphs (fill: currentColor) for badges: saucer silhouette, map pin, flag. -->
+    <symbol id="i-ufo" viewBox="0 0 24 24"><path d="M7.5 10.5a4.5 4.5 0 0 1 9 0z"/><path d="M12 11.2c6 0 10.5 1.7 10.5 3.6S18 18.6 12 18.6 1.5 16.8 1.5 14.8 6 11.2 12 11.2z"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 1.8a7.2 7.2 0 0 0-7.2 7.2c0 5.2 7.2 13.2 7.2 13.2s7.2-8 7.2-13.2A7.2 7.2 0 0 0 12 1.8zm0 4.4a2.8 2.8 0 1 1 0 5.6 2.8 2.8 0 0 1 0-5.6z"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 2.5h2.2v19H5z"/><path d="M8 3.5c3.5-1.6 6 1.6 11 0v9c-5 1.6-7.5-1.6-11 0z"/></symbol>
   </defs>
 </svg>
 
 <canvas id="game" tabindex="0" aria-label="Game view"></canvas>
+<div id="hurt" aria-hidden="true"></div>
 
 <!-- ================= HUD ================= -->
 <div id="hud" hidden>
@@ -45,7 +54,7 @@
     </div>
   </div>
   <div id="toasts" aria-live="polite"></div>
-  <div id="comm" hidden><div class="face" id="comm-face"></div><p id="comm-text"></p></div>
+  <div id="comm" hidden><div class="face" id="comm-face"></div><div class="balloon"><span class="name-tab">Commander Zix</span><p id="comm-text"></p></div></div>
   <canvas id="minimap" width="300" height="300" aria-label="Radar"></canvas>
   <div id="hint"></div>
   <div id="deploy" hidden></div>
@@ -67,7 +76,10 @@
 <section id="scr-title" class="screen" hidden>
   <div class="logo">
     <div class="eyebrow">A Gray Empire production</div>
-    <h1>Alien<span>Invasion</span></h1>
+    <h1 aria-label="Alien Invasion!">
+      <span class="logo-alien" aria-hidden="true">AL<span class="logo-i">I<svg class="logo-dot" viewBox="0 0 32 24"><use href="#i-saucer"/></svg></span>EN<span class="slime-cap"></span></span>
+      <span class="logo-ribbon" aria-hidden="true">INVASION!</span>
+    </h1>
   </div>
   <p class="tagline">You are a gray alien commander. <b>Beam up</b> humans, cows and cars. <b>Build</b> an army. <b>Conquer</b> every city on Earth.</p>
   <div class="row">
@@ -75,12 +87,12 @@
     <button class="btn primary" id="btn-new">New game</button>
     <button class="btn" id="btn-howto">How to play</button>
   </div>
-  <p class="fine">Keyboard + mouse or touch · Sound on recommended · <kbd style="font-family:var(--font-mono)">M</kbd> mutes</p>
+  <p class="fine">Keyboard + mouse or touch · Sound on recommended · <kbd>M</kbd> mutes</p>
 </section>
 
 <div id="confirm-new" hidden>
-  <div class="card" style="display:grid;gap:14px;text-align:center">
-    <h2>Start over?</h2>
+  <div class="card" role="alertdialog" aria-labelledby="confirm-title" style="display:grid;gap:14px;text-align:center">
+    <h2 id="confirm-title">Start over?</h2>
     <p>Your saved invasion (army, upgrades and resources) will be erased.</p>
     <div class="row"><button class="btn danger" id="btn-confirm-yes">Erase and start</button><button class="btn" id="btn-confirm-no">Keep my save</button></div>
   </div>
@@ -115,19 +127,19 @@
 
 <!-- ================= BRIEFING ================= -->
 <section id="scr-briefing" class="screen dim" hidden>
-  <div class="card">
+  <div class="card capped"><div class="slime-cap" aria-hidden="true"></div>
     <div class="eyebrow">Incoming transmission · High Council of the Gray Empire</div>
     <div class="brief" style="margin-top:14px">
       <div class="face" id="brief-face"></div>
       <p id="brief-text"></p>
     </div>
-    <div class="row" style="margin-top:18px;justify-content:flex-end"><button class="btn" id="btn-brief-skip">Skip</button><button class="btn primary" id="btn-accept">Start training</button></div>
+    <div class="row" style="margin-top:18px;justify-content:flex-end"><button class="btn" id="btn-brief-skip">Skip</button><button class="btn slime" id="btn-accept">Start training</button></div>
   </div>
 </section>
 
 <!-- ================= NIGHT SUMMARY ================= -->
 <section id="scr-summary" class="screen dim" hidden>
-  <div class="card">
+  <div class="card capped"><div class="slime-cap" aria-hidden="true"></div>
     <div class="eyebrow" id="sum-eyebrow">Report</div>
     <h2 id="sum-title">Night complete</h2>
     <dl class="stats" id="sum-body"></dl>
@@ -187,7 +199,7 @@
 
 <!-- ================= END ================= -->
 <section id="scr-end" class="screen dim" hidden>
-  <div class="card">
+  <div class="card capped"><div class="slime-cap" aria-hidden="true"></div>
     <div class="eyebrow" id="end-eyebrow">Invasion report</div>
     <h2 id="end-title">Earth has fallen</h2>
     <p id="end-lede" style="margin-top:8px"></p>
@@ -206,7 +218,7 @@
       <div class="meter" id="g-aware" title="How much the world believes in aliens. Higher means a stronger army everywhere."><span>Aware</span><div class="bar"><i></i></div><b class="val">0%</b></div>
       <div class="meter" id="g-conq" title="Cities you control"><span>Cities</span><div class="bar"><i></i></div><b class="val">0</b></div>
     </div>
-    <div class="g-right"><div class="wallet" id="g-wallet"></div><button class="btn" id="btn-g-ms">Mothership</button><button id="btn-g-menu" class="icon-btn" aria-label="Menu">II</button></div>
+    <div class="g-right"><div class="wallet" id="g-wallet"></div><button class="btn" id="btn-g-ms"><svg class="ico glyph" viewBox="0 0 32 24" aria-hidden="true"><use href="#i-saucer"/></svg>Mothership</button><button id="btn-g-menu" class="icon-btn" aria-label="Menu">II</button></div>
   </header>
   <aside id="g-panel" class="g-panel" aria-live="polite"></aside>
   <p id="g-hint" class="g-hint">Drag to spin Earth · Tap a glowing site to pick a mission</p>
@@ -214,11 +226,20 @@
 
 <!-- ================= TUTORIAL ================= -->
 <div id="tut" hidden>
-  <div class="tut-head"><span class="eyebrow" id="tut-step">Training 1/6</span><button class="tut-skip" id="tut-skip">Skip tutorial</button></div>
+  <div class="tut-head"><span class="tut-badge"><svg viewBox="0 0 32 24" aria-hidden="true"><use href="#i-saucer"/></svg><span id="tut-step">Training 1/6</span></span><button class="tut-skip" id="tut-skip">Skip tutorial</button></div>
   <p id="tut-text"></p>
 </div>
 
-<div id="loading">Warming up the saucer…</div>
+<div id="loading" role="status">
+  <div class="load-stage" aria-hidden="true">
+    <div class="load-saucer"><i class="dome"></i><i class="hull"></i><i class="bulbs a"></i><i class="bulbs b"></i></div>
+    <div class="load-beam"></div>
+    <div class="slime-cap puddle"></div>
+  </div>
+  <p class="load-text" id="load-text">Warming up the saucer…</p>
+  <div class="load-meter" aria-hidden="true"><i id="load-fill"></i></div>
+</div>
+<div id="iris" aria-hidden="true"></div>
 <div id="fail" hidden><p>This game needs WebGL, which your browser could not start.<br>Try another browser, or turn on hardware acceleration.</p></div>
 
 <script>

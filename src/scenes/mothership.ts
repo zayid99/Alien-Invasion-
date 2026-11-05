@@ -10,24 +10,13 @@ import { CITIES, regionById } from '../data/earth';
 import { writeSave } from '../core/save';
 import { SFX } from '../core/audio';
 import { platform } from '../core/platform';
-import { cachedModel, box, cyl, sph, lathe } from '../gfx/kit';
-import { miniSaucer } from '../gfx/models';
+import { miniSaucer, makeMothership } from '../gfx/models';
 import { clearWorld } from '../world/maps/common';
 import { armyPower, earthPower, cityLevel, cityState, regionUnlocked, verdict } from '../game/campaign';
 import { earthCanvas, leaveGlobe } from './globe';
 import { $, UI, ICON, costHTML } from '../ui/dom';
 import { TUT } from '../ui/tutorial';
 
-const makeMothership = () => cachedModel('mothership', k => {
-  k.add(lathe([[0.01, -6], [10, -5.2], [22, -3], [34, -0.7], [36.5, 0], [34, 1.5], [20, 4.2], [8, 7], [0.01, 8]], 56), '#646a80', { m: 'metal' });
-  k.add(new THREE.TorusGeometry(41, 1.5, 8, 72), '#474c5f', { r: [Math.PI / 2, 0, 0], m: 'metal' });
-  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; k.add(box(1.8, 1.1, 6), '#3b4052', { p: [Math.cos(a) * 38.5, 0, Math.sin(a) * 38.5], r: [0, Math.PI / 2 - a, 0], m: 'metal' }); }
-  for (let i = 0; i < 60; i++) { const a = i / 60 * Math.PI * 2; k.add(box(1.4, 0.55, 0.2), '#c69bff', { p: [Math.cos(a) * 34.9, 0.55, Math.sin(a) * 34.9], r: [0, Math.PI / 2 - a, 0], m: 'glow', k: 3 }); }
-  for (let i = 0; i < 36; i++) { const a = i / 36 * Math.PI * 2; k.add(sph(0.55, 6, 5), i % 2 ? '#ffd65c' : '#b98cff', { p: [Math.cos(a) * 42.6, 0, Math.sin(a) * 42.6], m: 'glow', k: 3 }); }
-  k.add(cyl(3, 5.5, 8, 14), '#6e7590', { p: [0, 11, 0], m: 'metal' });
-  k.add(sph(3.4, 18, 10), '#d8bcff', { p: [0, 15.6, 0], s: [1, 0.6, 1], m: 'glow', k: 1.8 });
-  k.add(cyl(9, 9, 0.3, 36), '#b07cff', { p: [0, -6.1, 0], m: 'glow', k: 2.4 });
-});
 let space: { earth: THREE.Group; ship: THREE.Object3D; drones: { d: THREE.Object3D; a: number; r: number; y: number }[] } = null;
 
 export function enterMothership() {

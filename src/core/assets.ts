@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { QUALITY } from './engine';
 import { TOON_RAMP, applyToon, inkify, toonMaterial } from '../gfx/toon';
 import { PAL } from '../gfx/palette';
@@ -216,8 +217,63 @@ async function fetchModel(file: string) {
   const bin = Uint8Array.from(atob((await r.text()).trim()), ch => ch.charCodeAt(0));
   return loader.parseAsync(bin.buffer, BASE);
 }
+/**
+ * Asset-pack models that ship every variant at once: keep one. The soldier carries all 15 weapons of the pack
+ * in its hand (60 meshes, ~120 draw calls each); it keeps only the AK (14 meshes).
+ */
+const KEEP_ONE: Record<string, { keep: string; drop: string[] }> = {
+  soldier: { keep: 'AK', drop: ['Revolver', 'Sniper', 'Revolver_Small', 'Pistol', 'SMG', 'GrenadeLauncher', 'ShortCannon', 'Shotgun', 'Sniper_2', 'RocketLauncher', 'Shovel', 'Knife_1', 'Knife_2'] },
+};
+function pruneVariants(id: string, root: THREE.Object3D) {
+  const rule = KEEP_ONE[id]; if (!rule) return;
+  const drop = new Set(rule.drop), gone: THREE.Object3D[] = [];
+  root.traverse(o => { if (drop.has(o.name)) gone.push(o); });
+  for (const o of gone) o.parent?.remove(o);
+}
+/**
+ * Draw-call diet: untextured parts that hang off the same parent (and, if skinned, share one skeleton) become one
+ * mesh, each part's colour baked into its vertices. A soldier goes from 14 meshes to 5, a deer from 7 to 1;
+ * with the ink hull every mesh costs two draws, so this matters most on low-end laptops.
+ */
+const KEEP_ATTR = new Set(['position', 'normal', 'color', 'skinIndex', 'skinWeight']);
+function mergeParts(root: THREE.Object3D) {
+  const groups = new Map<string, THREE.Mesh[]>();
+  root.traverse((o: any) => {
+    if (!o.isMesh || Array.isArray(o.material) || o.material.map || o.material.transparent || o.userData.noInk || o.children.length || !o.parent) return;
+    let key = o.parent.uuid + '|static';
+    if (o.isSkinnedMesh) {
+      o.updateMatrix(); if (!o.matrix.equals(new THREE.Matrix4())) return;   // skinned geometry stays in bind space
+      key = o.parent.uuid + '|' + o.skeleton.bones.map((b: THREE.Bone) => b.uuid).join(',') + '|' + o.bindMatrix.elements.join(',');
+    }
+    (groups.get(key) || groups.set(key, []).get(key)).push(o);
+  });
+  for (const list of groups.values()) {
+    if (list.length < 2) continue;
+    const skinned = (list[0] as THREE.SkinnedMesh).isSkinnedMesh, geos: THREE.BufferGeometry[] = [];
+    for (const m of list) {
+      const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+      for (const a of Object.keys(g.attributes)) if (!KEEP_ATTR.has(a)) g.deleteAttribute(a);
+      const c = (m.material as THREE.MeshToonMaterial).color, vc = g.attributes.color, n = g.attributes.position.count, out = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { out[i * 3] = c.r * (vc ? vc.getX(i) : 1); out[i * 3 + 1] = c.g * (vc ? vc.getY(i) : 1); out[i * 3 + 2] = c.b * (vc ? vc.getZ(i) : 1); }
+      g.setAttribute('color', new THREE.BufferAttribute(out, 3));
+      if (!skinned) { m.updateMatrix(); g.applyMatrix4(m.matrix); }
+      geos.push(g);
+    }
+    const merged = mergeGeometries(geos, false); geos.forEach(g => g.dispose());
+    if (!merged) continue;
+    const mat = toonMaterial({ vertexColors: true });
+    let mesh: THREE.Mesh;
+    if (skinned) {
+      const first = list[0] as THREE.SkinnedMesh, sm = new THREE.SkinnedMesh(merged, mat);
+      sm.bind(first.skeleton, first.bindMatrix); merged.computeBoundingSphere(); sm.computeBoundingSphere(); sm.boundingSphere.radius *= 1.8; mesh = sm;
+    } else mesh = new THREE.Mesh(merged, mat);
+    mesh.name = list[0].name; mesh.castShadow = list[0].castShadow;
+    const parent = list[0].parent; parent.add(mesh); for (const m of list) parent.remove(m);
+  }
+}
 async function loadOne(id: string) {
   const def = MODELS[id]; const g = await fetchModel(def.file);
+  pruneVariants(id, g.scene);
   let skinned = false;
   const converted = new Map<string, THREE.MeshToonMaterial>();   // glTF materials are shared between meshes: convert each once
   const conv = (m: THREE.Material, part: string | null) => {
@@ -234,6 +290,7 @@ async function loadOne(id: string) {
       if (QUALITY === 'low' && /^wheel/i.test(o.name)) o.userData.noInk = true;
     }
   });
+  mergeParts(g.scene);
   if (def.ink !== false) inkify(g.scene);   // ink hull + 'onormal' once per glTF geometry, shared by every copy
   g.scene.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(g.scene), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());

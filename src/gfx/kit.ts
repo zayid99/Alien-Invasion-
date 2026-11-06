@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { _c1, _e1, _m1, _q1, _v1, _v2 } from '../core/util';
 import { toonMaterial, inkify, ensureOnormal, type InkOpts } from './toon';
+import { QUALITY } from '../core/engine';
 
 export const MAT = {
   std: toonMaterial({ vertexColors: true }),                       // matte Earth side: ramp + soft rim
@@ -42,6 +43,8 @@ export class Kit {
   }
   geos() {
     const out: Partial<Record<MatKey, THREE.BufferGeometry>> = {};
+    // Low graphics: metal and gloss parts join the plain toon mesh (one mesh + one ink hull instead of three of each).
+    if (QUALITY === 'low') { this.lists.std.push(...this.lists.metal, ...this.lists.gloss); this.lists.metal = []; this.lists.gloss = []; }
     for (const m of Object.keys(this.lists) as MatKey[]) {
       const L = this.lists[m]; if (!L.length) continue;
       out[m] = L.length === 1 ? L[0] : mergeGeometries(L, false);

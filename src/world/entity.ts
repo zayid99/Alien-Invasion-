@@ -6,6 +6,8 @@ import type { Loot } from '../data/balance';
 import { blobShadow } from '../gfx/kit';
 import { FT, FX } from '../gfx/fx';
 import { play } from '../core/assets';
+import { camera, QUALITY } from '../core/engine';
+import { setInk } from '../gfx/toon';
 import type { ModelInstance } from '../core/assets';
 import { V3, clamp, pick, rand } from '../core/util';
 import type { Vec3 } from '../core/util';
@@ -51,9 +53,19 @@ export function removeEnt(e: Entity) {
   G.world.remove(e.obj); if (e.shadow) G.world.remove(e.shadow);
   if (e.model?.mixer) { e.model.mixer.stopAllAction(); e.model.mixer.uncacheRoot(e.obj); }
 }
+/**
+ * Outline LOD: an ink hull costs one extra draw per mesh, so distant people, animals and vehicles drop it
+ * (beyond 70 units on low graphics, 140 on high; 10 % hysteresis so nothing flickers at the edge).
+ */
+function inkLod(e: Entity) {
+  const far = QUALITY === 'low' ? 70 : 140, d2 = camera.position.distanceToSquared(e.pos);
+  const want = e.inkOn === false ? d2 < (far * 0.9) ** 2 : d2 < (far * 1.1) ** 2;
+  if (want !== (e.inkOn !== false)) { e.inkOn = want; setInk(e.obj, want); }
+}
 export function updateEnts(dt: number, updateLift: (e: Entity, dt: number) => void) {
   for (let i = 0; i < G.ents.length; i++) {
     const e = G.ents[i]; if (e.dead) continue;
+    inkLod(e);
     e.t += dt; e.sayT -= dt; if (e.stun > 0) e.stun -= dt;
     if (e.lift) updateLift(e, dt); else if (e.brain) e.brain(e, dt);
     if (e.jiggle > 0) { e.jiggle -= dt; e.obj.rotation.z = e.jiggle > 0 ? Math.sin(G.time * 45) * 0.05 : 0; }

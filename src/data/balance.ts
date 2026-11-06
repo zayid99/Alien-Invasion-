@@ -63,12 +63,17 @@ export function earthForces(L: number) {
     soldiers: 6 + 3 * L, tanks: 1 + L, turrets: 2 + Math.floor(L / 2),
     pylonHp: 520 + 120 * L, hqHp: 1500 + 320 * L,
     waveEvery: 24, waveSoldiers: 2 + Math.floor(L / 2), waveTankEvery: L >= 2 ? 3 : 0,
+    helis: Math.ceil(L / 2), jetEvery: Math.max(10, 24 - L),   // air support (world/battle.ts)
   };
 }
 export const DEFENDER = {
   soldier: { hp: 30, dmg: 4, rate: 1.2, range: 26, speed: 6 },
   tank:    { hp: 170, dmg: 26, rate: 0.3, range: 38, speed: 5, splash: 4 },
   turret:  { hp: 130, dmg: 8, rate: 1.6, range: 50, speed: 0 },
+  // attack helicopter: circles the army (orbit radius in m) low enough for ground units to shoot back; hp + 10 per level
+  heli:    { hp: 90, dmg: 5, rate: 2.1, range: 70, speed: 0, orbit: 24, alt: 26, hpPerLevel: 10 },
+  // jet bombing run: two jets, 4 bombs each
+  jet:     { hp: 0, dmg: 24, rate: 0, range: 0, speed: 95, splash: 7, bombs: 4 },
 };
 
 export const costText = (c: Cost) => RES.filter(r => c[r]).map(r => `${c[r]} ${r}`).join(' + ');

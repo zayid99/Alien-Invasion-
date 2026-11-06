@@ -41,7 +41,28 @@ try {
     const can = await page.evaluate(() => ({ clone: !document.getElementById('btn-build-clone')?.disabled, beam: !document.querySelector('[data-up="beam"]')?.disabled }));
     if (!can.clone || !can.beam) errors.push(`first purchases not affordable after training: ${JSON.stringify(can)}`);
   }
+  // --- regression checks (docs/STUDIO_REVIEW.md) ---
+  // B: ending a night straight away pays no tribute and does not count as a finished night
+  const abort = await page.evaluate(() => {
+    const A = window.__AI, G = A.G; A.TUT.stop(); G.save.tutorial = { done: true, ms: 3, globe: true };
+    G.save.cities = { 'kansas-city': { occupied: true, attempts: 0, since: 1 } };
+    const res = { ...G.save.res }, missions = G.save.totals.missions, day = G.save.day;
+    A.startMission({ id: 'e2e-abort', type: 'abduct', region: 'us-midwest', lat: 0, lon: 0, name: 'Test', level: 1, expires: 99 });
+    A.endNight('abort');
+    return { gain: G.save.res.humans - res.humans, missions: G.save.totals.missions - missions, days: G.save.day - day };
+  });
+  if (abort.gain !== 0 || abort.missions !== 0 || abort.days !== 1) errors.push(`ending a night early: ${JSON.stringify(abort)} (want no tribute, no mission counted, 1 day)`);
+  // A: the saucer going down just before the HQ falls is still a victory
+  await page.evaluate(() => {
+    const A = window.__AI, G = A.G; G.save.cities = {}; G.save.army = { clone: 6, brute: 0, saucer: 0, walker: 0 };
+    A.startInvasion({ id: 'kansas-city', name: 'Kansas City', country: 'USA', region: 'us-midwest', lat: 39.1, lon: -94.58, size: 2 });
+    A.damagePlayer(1e6); if (!G.player.dead) throw new Error('saucer should be down');   // defeat scheduled in 1.6 s
+    G.inv.pylonsLeft = 0; G.inv.hq.onDamage(G.inv.hq, 1e9, 'test');            // ...but the HQ falls first
+  });
+  await sleep(9000);
+  const race = await page.evaluate(() => ({ eyebrow: document.getElementById('end-eyebrow').textContent, occupied: !!window.__AI.G.save.cities['kansas-city']?.occupied }));
+  if (!race.eyebrow.includes('Victory') || !race.occupied) errors.push(`HQ down after the saucer fell should be a victory: ${JSON.stringify(race)}`);
 } catch (e) { errors.push(String(e)); }
 await browser?.close(); server.kill();
 if (errors.length) { console.error('FAILED:\n' + errors.join('\n')); process.exit(1); }
-console.log('OK: game boots, tutorial completes, no console errors.');
+console.log('OK: game boots, tutorial completes, regression checks pass, no console errors.');

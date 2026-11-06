@@ -7,7 +7,7 @@ type Pos = { x: number; z: number } | null;
 const SAMPLES: Record<string, string> = { ui: 'ui', confirm: 'confirm', levelup: 'level_up', coin: 'coin', impact: 'impact', bigkill: 'big_kill', boss: 'boss', hurt: 'hurt' };
 
 class Sfx {
-  ctx: AudioContext | null = null; master: GainNode | null = null; muted = !!prefs.muted; adPaused = false;
+  ctx: AudioContext | null = null; master: GainNode | null = null; muted = !!prefs.muted; adPaused = false; gamePaused = false;
   private last: Record<string, number> = {}; private noiseBuf: AudioBuffer | null = null;
   private loops: Record<string, { g: GainNode; nodes: OscillatorNode[]; base: number[] }> = {};
   private buffers: Record<string, AudioBuffer> = {};
@@ -34,7 +34,9 @@ class Sfx {
   audible() { return !this.muted && !this.adPaused && !platform.muted(); }
   refreshVolume() {
     if (this.master && this.ctx) this.master.gain.setTargetAtTime(this.audible() ? 0.6 : 0, this.ctx.currentTime, 0.05);
-    if (this.music) { if (this.audible() && this.musicWanted) this.music.play().catch(() => {}); else this.music.pause(); }
+    if (this.music) { if (this.audible() && this.musicWanted && !this.gamePaused && !document.hidden) this.music.play().catch(() => {}); else this.music.pause(); }
+    // a hidden tab is silent: suspend the whole audio graph, resume it when the player comes back
+    if (this.ctx) { if (document.hidden || this.adPaused) { if (this.ctx.state === 'running') this.ctx.suspend().catch(() => {}); } else if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {}); }
   }
   setMuted(m: boolean) { this.muted = m; prefs.muted = m; savePrefs(); this.refreshVolume(); }
   private makeLoop(oscs: [number, OscillatorType][], cutoff: number) {
@@ -109,7 +111,7 @@ class Sfx {
   }
   /** Background music: a CC0 track for battles, generative ambience everywhere else. */
   setMusic(mood: 'calm' | 'tense' | 'battle' | 'none') {
-    this.mood = mood; this.musicWanted = mood === 'battle';
+    this.mood = mood; this.musicWanted = mood === 'battle'; this.gamePaused = false;   // a new scene is never paused
     if (this.musicWanted && !this.music) { this.music = new Audio('assets/audio/music/battle_theme_a.mp3'); this.music.loop = true; this.music.volume = 0.35; }
     this.refreshVolume();
   }

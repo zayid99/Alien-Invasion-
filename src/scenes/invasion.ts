@@ -51,7 +51,7 @@ export function startInvasion(city: City) {
   UI.hint(`<kbd>WASD</kbd> fly · <kbd>click</kbd> ray · <kbd>Space</kbd> beam up soldiers + wrecks · <kbd>1</kbd>–<kbd>4</kbd> drop reinforcements`);
   UI.comm(units ? `The army has landed in ${city.name}. Destroy the three <b>shield pylons</b>, then their headquarters. I will cover you from the saucer.` : 'We have no army?! Drop units with keys 1-4 if you have resources, or retreat from the pause menu.', 7);
   SFX.setMusic('battle'); SFX.play('battle'); platform.gameplayStart(); $('game').focus({ preventScroll: true });
-  playerHooks.onDown = () => endInvasion(false);
+  playerHooks.onDown = () => { if (G.mode === 'invasion' && !G.inv.over) endInvasion(false); };   // the army may still win in the 1.6 s warp-out
   invasionHooks.onWin = winInvasion; invasionHooks.onDeploy = renderDeployBar; invasionHooks.onBoss = onBossDown;
 }
 export function updateInvasion(dt: number) {

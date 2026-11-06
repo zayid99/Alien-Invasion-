@@ -90,13 +90,20 @@ export function updateMission(dt: number) {
 }
 export function endNight(reason: 'dawn' | 'destroyed' | 'abort' | 'tutorial') {
   const N = G.night; if (!N || N.ended) return; N.ended = true;
+  if (N.tutorial && reason === 'abort') reason = 'tutorial';   // quitting the training night skips the rest of training
   const lost = { ...G.cargo };
   G.lastNight = { banked: { ...N.banked }, lost: reason === 'destroyed' ? { humans: lost.humans, biomass: lost.biomass, metal: lost.metal } : {} };
   if (reason !== 'destroyed') bankCargo(); else G.cargo = { humans: 0, biomass: 0, metal: 0, mass: 0 };
   SFX.stopLoops(); TUT.stop(); platform.gameplayStop();
   G.save.totals.playTime += CFG.nightLength - Math.max(0, G.nightT);
   let report: DayReport = null;
-  if (!N.tutorial) { missionDone(N.site, N.stats.humans, N.stats.humans + N.stats.animals + N.stats.vehicles); report = advanceDay(); onNightEnd(reason === 'dawn' && !N.hurt); nightNews(N.stats, N.regionName, reason, N.maxAlert || 0, !!N.mega); }
+  if (!N.tutorial) {
+    // ending a night early (pause menu) still uses up the day, but tribute is paid only for the share of the night
+    // played, and it does not count as a finished night for missions or achievements (no tribute farming)
+    const share = reason === 'abort' ? Math.max(0, Math.min(1, 1 - Math.max(0, G.nightT) / CFG.nightLength)) : 1;
+    missionDone(N.site, N.stats.humans, N.stats.humans + N.stats.animals + N.stats.vehicles, reason !== 'abort');
+    report = advanceDay(share); if (reason !== 'abort') onNightEnd(reason === 'dawn' && !N.hurt); nightNews(N.stats, N.regionName, reason, N.maxAlert || 0, !!N.mega);
+  }
   const row = (k: string, v: string | number, cls = '') => `<dt>${k}</dt><dd class="${cls}">${v}</dd>`;
   let html = row('Humans abducted', N.stats.humans) + row('Animals abducted', N.stats.animals) + row('Vehicles abducted', N.stats.vehicles);
   if (N.stats.artifacts) html += row('Earth artifacts found', N.stats.artifacts, 'gain');

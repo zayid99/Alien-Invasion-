@@ -14,8 +14,10 @@ import { fireAt, PROJ } from './combat';
 import type { Weapon } from './combat';
 import { spawnHuman, spawnVehicle, lane } from './civilians';
 import { CITY_ROADS } from './maps/city';
+import { DEFENDER, earthForces } from '../data/balance';
 
-const HELI_GUN: Weapon = { speed: 85, lead: 0.5, spread: 1.2, dmg: 5, color: FXC.pistol };
+const H = DEFENDER.heli, J = DEFENDER.jet;
+const HELI_GUN: Weapon = { speed: 85, lead: 0.5, spread: 1.2, dmg: H.dmg, color: FXC.pistol };
 const HELI_COLORS = ['#6f8a3f', '#4f6a8a', '#3a3550'];
 const makeHeli = (i: number) => cachedModel('heli' + (i % 3), k => {
   const c = HELI_COLORS[i % 3];
@@ -40,13 +42,13 @@ const makeJet = () => cachedModel('jet', k => {
 });
 
 interface Jet { obj: THREE.Object3D; pos: THREE.Vector3; vel: THREE.Vector3; t: number; drops: number }
-const B = { jets: [] as Jet[], jetT: 12, lights: [] as THREE.Mesh[], L: 1 };
+const B = { jets: [] as Jet[], jetT: 12, jetEvery: 20, lights: [] as THREE.Mesh[], L: 1 };
 
 /** Called by startInvasion after the defenders are placed. */
 export function setupBattle(L: number) {
-  B.jets = []; B.jetT = rand(10, 16); B.L = L; B.lights = [];
-  // attack helicopters: 1 + level/2, circling the army
-  for (let i = 0; i < 1 + Math.ceil(L / 2); i++) spawnHeli(rand(-150, 150), rand(-170, -60), i);
+  const F = earthForces(L); B.jets = []; B.jetEvery = F.jetEvery; B.jetT = rand(F.jetEvery * 0.6, F.jetEvery); B.L = L; B.lights = [];
+  // attack helicopters (earthForces.helis), circling the army
+  for (let i = 0; i < F.helis; i++) spawnHeli(rand(-150, 150), rand(-170, -60), i);
   // panicking crowds on the sidewalks and fleeing traffic on the avenues
   for (let i = 0; i < 18; i++) {
     const r = pick(CITY_ROADS.filter(v => v < 128)), t = rand(-170, 110), side = pick([-1, 1]) * 9.5;
@@ -62,9 +64,9 @@ export function setupBattle(L: number) {
 }
 function spawnHeli(x: number, z: number, i: number) {
   const g = new THREE.Group(); g.add(makeHeli(i)); const r = rotor(); r.position.y = 2.4; g.add(r);
-  g.position.set(x, 32, z);
-  const e = makeEnt('heli', g, { r: 3, hh: 0, team: 'earth', hp: 90 + B.L * 10, brain: brainHeli, mini: '#ff6a5a', miniR: 2.2, shadow: 3, air: true });
-  e.lootable = false; e.zap = true; e.rotor = r; e.orbit = rand(0, 6); e.cool = rand(0, 2); e.burst = 0; e.pos.y = 32;
+  g.position.set(x, H.alt, z);
+  const e = makeEnt('heli', g, { r: 3, hh: 0, team: 'earth', hp: H.hp + B.L * H.hpPerLevel, brain: brainHeli, mini: '#ff6a5a', miniR: 2.2, shadow: 3, air: true });
+  e.lootable = false; e.zap = true; e.rotor = r; e.orbit = rand(0, 6); e.cool = rand(0, 2); e.burst = 0; e.pos.y = H.alt;
   e.onDeath = heliDown;
   return e;
 }
@@ -73,13 +75,13 @@ function brainHeli(e: Entity, dt: number) {
   if (e.hp <= 0) return;
   const I = G.inv, c = I?.center || G.player.pos;
   e.orbit += dt * 0.35;
-  const tx = c.x + Math.cos(e.orbit) * 38, tz = c.z - 10 + Math.sin(e.orbit) * 30;
+  const tx = c.x + Math.cos(e.orbit) * H.orbit, tz = c.z - 10 + Math.sin(e.orbit) * H.orbit * 0.8;
   e.pos.x += (tx - e.pos.x) * Math.min(1, dt * 0.6); e.pos.z += (tz - e.pos.z) * Math.min(1, dt * 0.6);
-  e.pos.y = 32 + Math.sin(G.time * 1.3 + e.orbit) * 1.5;
+  e.pos.y = H.alt + Math.sin(G.time * 1.3 + e.orbit) * 1.5;
   // face the nearest alien unit (or the saucer) and fire bursts at it
   let tgt: any = G.player; let bd = G.player && !G.player.dead ? hdist(e.pos, G.player.pos) : 1e9;
   for (const o of G.ents) if (o.team === 'alien' && !o.dead) { const d = hdist(e.pos, o.pos); if (d < bd) { bd = d; tgt = o; } }
-  if (tgt && bd < 70) {
+  if (tgt && bd < H.range) {   // bursts of 5 shots: about DEFENDER.heli.rate shots/s on average
     e.heading = angTo(e.heading, Math.atan2(tgt.pos.x - e.pos.x, tgt.pos.z - e.pos.z), 2 * dt);
     e.cool -= dt;
     if (e.cool <= 0) { if (e.burst <= 0) e.burst = 5; e.burst--; e.cool = e.burst > 0 ? 0.12 : rand(1.4, 2.2); fireAt(e, new V3(e.pos.x, e.pos.y - 1.6, e.pos.z), tgt, HELI_GUN, { sound: 'shot' }); }
@@ -101,7 +103,7 @@ function jetRun() {
   if (chance(0.5)) { from.x = c.x + 260; dir.x *= -1; }
   for (let i = 0; i < 2; i++) {
     const o = makeJet(); o.position.copy(from).add(new THREE.Vector3(0, i * 3, i * 10)); o.lookAt(o.position.clone().add(dir)); G.world.add(o);
-    B.jets.push({ obj: o, pos: o.position, vel: dir.clone().multiplyScalar(95), t: 0, drops: 4 });
+    B.jets.push({ obj: o, pos: o.position, vel: dir.clone().multiplyScalar(J.speed), t: 0, drops: J.bombs });
   }
   SFX.play('warp'); FT.spawn(new THREE.Vector3(c.x, 30, c.z), 'INCOMING JETS!', 'warn', 1.6, 2);
 }
@@ -109,13 +111,13 @@ function jetRun() {
 /** Per frame (invasion): jets, searchlights, the odd scream from the crowd. */
 export function updateBattle(dt: number) {
   const I = G.inv; if (!I) return;
-  if (!I.over && (B.jetT -= dt) <= 0) { B.jetT = rand(15, 25) - B.L; jetRun(); }
+  if (!I.over && (B.jetT -= dt) <= 0) { B.jetT = B.jetEvery * rand(0.8, 1.2); jetRun(); }
   for (let i = B.jets.length - 1; i >= 0; i--) {
     const j = B.jets[i]; j.t += dt; j.pos.addScaledVector(j.vel, dt);
     if (Math.random() < dt * 30) FX.smoke(_v1.copy(j.pos).addScaledVector(j.vel, -0.06), 1, 0.8, 0.5, 0.2, false);
     // bombs: dropped while passing over the army
     if (j.drops > 0 && Math.abs(j.pos.x - I.center.x) < 30 && Math.random() < dt * 8) {
-      j.drops--; PROJ.fire({ from: j.pos.clone().setY(j.pos.y - 2), vel: new V3(j.vel.x * 0.4, -28, j.vel.z * 0.4), team: 'earth', dmg: 24, splash: 7, life: 4, kind: 'shell', width: 0.6, hitAir: false });
+      j.drops--; PROJ.fire({ from: j.pos.clone().setY(j.pos.y - 2), vel: new V3(j.vel.x * 0.4, -28, j.vel.z * 0.4), team: 'earth', dmg: J.dmg, splash: J.splash, life: 4, kind: 'shell', width: 0.6, hitAir: false });
     }
     if (j.t > 7) { G.world.remove(j.obj); B.jets.splice(i, 1); }
   }

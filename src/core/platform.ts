@@ -12,7 +12,7 @@ function fakeAd(label: string, ms: number): Promise<boolean> {
     setTimeout(() => { d.remove(); platform.onAdPause?.(false); res(true); }, ms);
   });
 }
-let inGameplay = false;
+let inGameplay = false, loading = false, heldStart = false;
 const lastCloudWrite = new Map<string, number>();
 const pendingCloud = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -38,11 +38,13 @@ export const platform = {
     } catch (e) { console.warn('[platform] CrazyGames SDK unavailable, continuing without it', e); sdk = null; }
   },
   muted(): boolean { try { return !!sdk?.game?.settings?.muteAudio; } catch { return false; } },
-  loadingStart() { safe(() => sdk?.game.loadingStart()); },
-  loadingStop() { safe(() => sdk?.game.loadingStop()); },
+  // CrazyGames expects loadingStop before the first gameplayStart: a gameplayStart asked for while loading is held
+  // back and sent right after loadingStop.
+  loadingStart() { loading = true; safe(() => sdk?.game.loadingStart()); },
+  loadingStop() { loading = false; safe(() => sdk?.game.loadingStop()); if (heldStart) { heldStart = false; platform.gameplayStart(); } },
   /** Call when the player is actually playing (a mission), and stop on menus/pause. */
-  gameplayStart() { if (inGameplay) return; inGameplay = true; safe(() => sdk?.game.gameplayStart()); },
-  gameplayStop() { if (!inGameplay) return; inGameplay = false; safe(() => sdk?.game.gameplayStop()); },
+  gameplayStart() { if (loading) { heldStart = true; return; } if (inGameplay) return; inGameplay = true; safe(() => sdk?.game.gameplayStart()); },
+  gameplayStop() { heldStart = false; if (!inGameplay) return; inGameplay = false; safe(() => sdk?.game.gameplayStop()); },
   /** Moments of joy (city captured, big upgrade). */
   happytime() { safe(() => sdk?.game.happytime()); },
   /**

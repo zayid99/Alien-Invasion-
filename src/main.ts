@@ -20,12 +20,12 @@ import { TUT } from './ui/tutorial';
 import { nightOffers, takeRewardedGap } from './ui/rewards';
 import { initMetaUI, maybeShowDailyDrop, nextGoalsHTML, showCatalogue, showAchievements, showHangar } from './ui/meta';
 import { META, rollDaily, checkAchievements } from './game/meta';
-import { initUFO, bankCargo } from './world/player';
+import { initUFO, bankCargo, damagePlayer } from './world/player';
 import { PROJ, updateLift, abductEnt, raiseAlert } from './world/combat';
 import { updateEnts } from './world/entity';
 import { CITY_DMG, damageBuildings } from './world/cityDamage';
 import { deployUnit } from './world/invasion';
-import { refreshSites, armyPower } from './game/campaign';
+import { refreshSites, armyPower, earthPower, cityLevel, verdict } from './game/campaign';
 import { enterTitle, updateTitle } from './scenes/title';
 import { startMission, updateMission, endNight, missionHooks } from './scenes/mission';
 import { enterMothership, updateMothership, buildUnits, buyUpgrade } from './scenes/mothership';
@@ -120,6 +120,7 @@ function setPaused(p: boolean) {
   if (!['mission', 'invasion', 'globe'].includes(G.mode)) return;
   G.paused = p; UI.show(p ? 'scr-pause' : null);
   if (p) { SFX.stopLoops(); platform.gameplayStop(); } else if (G.mode !== 'globe') platform.gameplayStart();
+  SFX.gamePaused = p; SFX.refreshVolume();   // the battle music stops with the game
   $('btn-sound').textContent = `Sound: ${SFX.muted ? 'off' : 'on'}`; $('btn-quality').textContent = `Graphics: ${QUALITY}`;
   const msg = { mission: ['End the night', 'Ending the night still delivers the cargo in your hold.'], invasion: ['Retreat', 'Retreating counts as a failed invasion. Surviving units come home.'], globe: ['Save & quit', 'Your progress is saved automatically.'] }[G.mode];
   $('btn-quit').textContent = msg[0]; $('pause-note').textContent = msg[1];
@@ -129,7 +130,10 @@ function wireUI() {
   // While the iris is closing the old screen is on its way out: ignore its buttons (keyboard repeats included).
   const click = (id: string, fn: (e: MouseEvent) => void) => $(id).addEventListener('click', e => { if (UI.irisClosing) return; SFX.init(); fn(e as MouseEvent); });
   const at = (e: MouseEvent) => clickPoint(e.currentTarget as Element);   // the iris closes on the clicked button
-  click('btn-new', e => { SFX.play('ui'); if (loadSave()) $('confirm-new').hidden = false; else startNewGame(at(e)); });
+  click('btn-new', e => {   // only ask before erasing real progress (a first visit writes a fresh save at boot)
+    SFX.play('ui'); const sv = loadSave();
+    if (sv && (sv.tutorial?.done || sv.tutorial?.ms > 0 || sv.totals?.missions > 0)) $('confirm-new').hidden = false; else startNewGame(at(e));
+  });
   click('btn-confirm-yes', e => { $('confirm-new').hidden = true; startNewGame(at(e)); });
   click('btn-confirm-no', () => { $('confirm-new').hidden = true; });
   click('btn-continue', e => { SFX.play('ui'); continueGame(at(e)); });
@@ -149,7 +153,7 @@ function wireUI() {
   click('btn-sound', () => { SFX.setMuted(!SFX.muted); $('btn-sound').textContent = `Sound: ${SFX.muted ? 'off' : 'on'}`; });
   click('btn-quality', () => { setQuality(QUALITY === 'high' ? 'low' : 'high', true); $('btn-quality').textContent = `Graphics: ${QUALITY}`; });
   click('btn-quit', e => {
-    G.paused = false; UI.show(null);
+    G.paused = false; SFX.gamePaused = false; UI.show(null);
     if (G.mode === 'mission') endNight('abort');
     else if (G.mode === 'invasion') { G.player.dead = true; endInvasion(false); }
     else if (G.mode === 'globe') { writeSave(G.save); UI.iris(() => { leaveGlobe(); hideLabels(); TUT.stop(); enterTitle(); }, at(e)); }
@@ -157,7 +161,7 @@ function wireUI() {
   click('btn-end', e => { SFX.play('ui'); betweenMissions(goGlobe, at(e)); });
   click('deploy', e => { const b = (e.target as HTMLElement).closest('[data-deploy]') as HTMLButtonElement; if (b && !b.disabled) deployUnit(b.dataset.deploy as UnitKey); });
   click('tut-skip', () => TUT.skip());
-  document.addEventListener('visibilitychange', () => { if (document.hidden && (G.mode === 'mission' || G.mode === 'invasion') && !G.paused) setPaused(true); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && (G.mode === 'mission' || G.mode === 'invasion') && !G.paused) setPaused(true); SFX.refreshVolume(); });
   INPUT.captureKeys = () => (G.mode === 'mission' || G.mode === 'invasion') && !G.paused;
   INPUT.onTouchEnabled = () => { UI.touch = true; UI.hud(!$('hud').hidden); };
   SFX.listener = () => G.player?.pos ?? null;
@@ -241,7 +245,6 @@ async function boot(data?: { save?: any }) {
   renderer.setAnimationLoop(tick);
   await Promise.race([new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r()))), wait(400)]);   // first frames behind the curtain
   $('loading').hidden = true; $('fail').hidden = true; platform.loadingStop();
-  if (firstVisit) { platform.gameplayStop(); platform.gameplayStart(); }   // report the order CrazyGames expects: loading done, then play
   // The rest of the models download in the background; every screen change waits for them behind the iris.
   const all = preload(allModelIds());
   UI.beforeSwap = () => all;
@@ -249,7 +252,7 @@ async function boot(data?: { save?: any }) {
 
 // Handy for testing in the browser console, e.g. __AI.give(100). Left out of the CrazyGames build (no console cheats).
 if (PLATFORM !== 'crazygames') (window as any).__AI = {
-  USED, instance, endInvasion, CITY_DMG, damageBuildings, BEAM, renderFrame, abductEnt, raiseAlert, enterTitle, G, startMission, startInvasion, enterMothership, goGlobe, endNight, deployUnit, setQuality, INPUT, PROJ, renderer, camera, TUT, bankCargo,
+  USED, instance, endInvasion, CITY_DMG, damageBuildings, BEAM, renderFrame, abductEnt, raiseAlert, enterTitle, G, startMission, startInvasion, enterMothership, goGlobe, endNight, deployUnit, setQuality, INPUT, PROJ, renderer, camera, TUT, bankCargo, damagePlayer, armyPower, earthPower, cityLevel, verdict,
   give(n = 50) { for (const r of ['humans', 'biomass', 'metal'] as const) G.save.res[r] += n; writeSave(G.save); },
   simulate(sec: number, dt = 1 / 30) { for (let t = 0; t < sec; t += dt) { step(dt); INPUT.endFrame(); } },
   updateEnts: (dt: number) => updateEnts(dt, updateLift),

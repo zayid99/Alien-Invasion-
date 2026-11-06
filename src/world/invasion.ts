@@ -278,7 +278,7 @@ function findEarthTarget(e: Entity, range: number) {
     if (o.team !== 'earth' || o.dead || o.hp <= 0) continue;
     if (o.kind === 'hq' && I.pylonsLeft > 0) continue;
     const d = hdist(e.pos, o.pos) - (o.structure ? o.r : 0); if (d > range) continue;
-    if (!e.air && d > 6 && !losClear(e.pos, o.pos, (o.structure ? o.r : 0) + 3)) continue;
+    if (!e.air && !o.air && d > 6 && !losClear(e.pos, o.pos, (o.structure ? o.r : 0) + 3)) continue;   // ground units shoot up at helicopters over the rooftops
     const s = d + (o.structure ? 10 : 0); if (s < bd) { bd = s; best = o; }
   }
   return best;

@@ -23,7 +23,10 @@ export function cityLevel(c: City) {
   const s = G.save; return Math.max(1, c.size - 1 + Math.floor(s.day / 8) + Math.floor(s.awareness / 25) + cityState(c.id).attempts);
 }
 const defPower = (k: keyof typeof DEFENDER) => { const d = DEFENDER[k]; return Math.round(Math.sqrt(d.hp * d.dmg * d.rate)); };
-export function earthPower(L: number) { const f = earthForces(L); return Math.round(f.soldiers * defPower('soldier') + f.tanks * defPower('tank') + f.turrets * defPower('turret') + (f.pylonHp * 3 + f.hqHp) / 40); }
+export function earthPower(L: number) {
+  const f = earthForces(L), jets = 120 / f.jetEvery * 2 * DEFENDER.jet.bombs * DEFENDER.jet.dmg / 40;   // bombs dropped in a ~2 min battle, per 40 hp
+  return Math.round(f.soldiers * defPower('soldier') + f.tanks * defPower('tank') + f.turrets * defPower('turret') + f.helis * defPower('heli') + jets + (f.pylonHp * 3 + f.hqHp) / 40);
+}
 export function armyPower() { let s = 0; for (const k of UNIT_KEYS) s += G.save.army[k] * unitPower(k); const u = G.save.up; return Math.round(s + 30 + (u.ray + u.shield) * 10); }
 export function verdict(us: number, them: number) {
   const r = us / them;
@@ -49,17 +52,17 @@ export function refreshSites() {
 }
 export interface DayReport { day: number; tribute: Wallet; unlocked: string | null }
 /** One day passes (after every mission). */
-export function advanceDay(): DayReport {
+export function advanceDay(share = 1): DayReport {
   const s = G.save; s.day++;
   for (const id in s.regions) s.regions[id].alert = Math.max(0, s.regions[id].alert - CFG.regionAlertDecayPerDay);
   s.awareness = Math.max(0, s.awareness - 0.5);
-  const t = tribute(); for (const r of RES) { s.res[r] += t[r]; s.totals[r] += t[r]; }
+  const t = tribute(); for (const r of RES) { t[r] = Math.floor(t[r] * share); s.res[r] += t[r]; s.totals[r] += t[r]; }   // share < 1: a night ended early
   const before = s.tierUnlocked; s.tierUnlocked = Math.min(4, 1 + (s.totals.citiesTaken >= 1 ? 1 : 0) + (s.totals.citiesTaken >= 3 ? 1 : 0) + (s.totals.citiesTaken >= 6 ? 1 : 0));
   refreshSites();
   return { day: s.day, tribute: t, unlocked: s.tierUnlocked > before ? TIER_NAMES[s.tierUnlocked] : null };
 }
-export function missionDone(site: MissionSite | null, humans: number, total: number) {
-  const s = G.save; s.totals.missions++;
+export function missionDone(site: MissionSite | null, humans: number, total: number, counts = true) {
+  const s = G.save; if (counts) s.totals.missions++;
   if (site) { regionState(site.region).alert = clamp(regionState(site.region).alert + 12 + humans * 1.5, 0, 100); s.sites = s.sites.filter(x => x.id !== site.id); }
   s.awareness = clamp(s.awareness + 0.8 + total * 0.08, 0, 100);
 }

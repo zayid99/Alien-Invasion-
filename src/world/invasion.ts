@@ -15,6 +15,7 @@ import { V3, _v1, _v2, angTo, angWrap, chance, damp, hdist, pick, rand } from '.
 import { makeEnt, stepMove, say, damageEnt, pushOut, attachToBone } from './entity';
 import type { Entity } from './entity';
 import { fireAt, PROJ } from './combat';
+import { damageBuildings } from './cityDamage';
 import type { Weapon } from './combat';
 import { spawnHuman } from './civilians';
 import { spawnTank, smokeIfWrecked, wreckVehicle, aimNode } from './military';
@@ -238,6 +239,7 @@ function brainBoss(e: Entity, dt: number) {
   if ((e.stompT -= dt) <= 0) {
     e.stompT = 5.5; FX.explode(_v1.copy(e.pos).setY(0.5), 2.6); FX.word(_v2.copy(e.pos).setY(4), 'boom', 2); G.shake = Math.max(G.shake, 0.8);
     for (const u of G.ents) if (u.team === 'alien' && !u.dead && !u.air && hdist(u.pos, e.pos) < 18) damageEnt(u, 55, e);
+    damageBuildings(e.pos.x, e.pos.z, 20, 220);
   }
 }
 function bossDown(e: Entity) {
@@ -349,8 +351,8 @@ export function updateWaves(dt: number) {
 /** Place Earth's defenders and land your army. Returns the invasion state. */
 export function setupInvasion(L: number) {
   const F = earthForces(L);
-  const I = G.inv = { L, F, waveT: F.waveEvery, waves: 0, flows: new Map(), over: false, objective: null as Entity, center: new V3(0, 0, 130), grid: null as any,
-    hq: null as Entity, pylons: [] as Entity[], pylonsLeft: 3, boss: null as { name: string } | null, bossEnt: null as Entity, stats: { humans: 0, animals: 0, vehicles: 0, artifacts: 0, lost: 0, killed: 0, surrendered: 0, deployed: 0, startArmy: { ...G.save.army } } };
+  const I = G.inv = { L, F, waveT: F.waveEvery, waves: 0, flows: new Map(), over: false, objective: null as Entity, center: new V3(0, 0, 140), grid: null as any,
+    hq: null as Entity, pylons: [] as Entity[], pylonsLeft: 3, boss: null as { name: string } | null, bossEnt: null as Entity, stats: { humans: 0, animals: 0, vehicles: 0, artifacts: 0, lost: 0, killed: 0, surrendered: 0, deployed: 0, buildings: 0, startArmy: { ...G.save.army } } };
   I.hq = spawnHQ(F.hqHp);
   I.pylons = PYLON_SPOTS.map(([x, z]) => spawnPylon(x, z, F.pylonHp));
   const turretSpots = [[-50, 62], [50, 62], [0, -62], [-20, 22], [20, 22], [0, -24], [-62, 50], [62, 50]];
@@ -361,7 +363,7 @@ export function setupInvasion(L: number) {
   const tankSpots = [[0, 75], [-25, 50], [25, 50], [-75, 75], [75, 75], [0, 25], [-25, -25], [25, -25]];
   for (let i = 0; i < F.tanks; i++) { const [x, z] = tankSpots[i % 8]; const t = spawnDefender(L >= 4 && i % 3 === 2 ? 'mech' : 'tank', x, z); t.heading = Math.PI; t.obj.rotation.y = Math.PI; }
   let i = 0;
-  for (const [k, n] of Object.entries(G.save.army)) for (let j = 0; j < n; j++, i++) spawnUnit(k as UnitKey, ((i % 14) - 6.5) * 4.5 + rand(-1, 1), 134 + Math.floor(i / 14) * 4 + rand(-1, 1));
+  for (const [k, n] of Object.entries(G.save.army)) for (let j = 0; j < n; j++, i++) spawnUnit(k as UnitKey, ((i % 14) - 6.5) * 4.5 + rand(-1, 1), 136 + Math.floor(i / 14) * 4 + rand(-1, 1));
   return i;
 }
 /** Per-frame invasion upkeep: army centre, dome + pylon visuals. */

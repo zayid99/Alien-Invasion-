@@ -152,6 +152,7 @@ function dot(c: CanvasRenderingContext2D, x: number, y: number, r: number, fill:
 }
 export function drawMinimap() {
   if (!MINI.ctx) MINI.ctx = ($('minimap') as HTMLCanvasElement).getContext('2d');
+  MINI.half = G.mapHalf || 175;
   const c = MINI.ctx, W = c.canvas.width, P = G.player; if (!P) return;
   // canvas pixels per CSS pixel (150 px desktop, 100 px touch); re-measured every 2 s instead of every frame
   if (!MINI.cssW || G.time - MINI.cssT > 2 || G.time < MINI.cssT) { MINI.cssW = c.canvas.clientWidth || W / 2; MINI.cssT = G.time; }

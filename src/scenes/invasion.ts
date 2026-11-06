@@ -1,4 +1,6 @@
 // City invasion scene: setup, per-frame update, victory cinematic and the results screen.
+import { updateCityDamage, CITY_DMG } from '../world/cityDamage';
+import { setupBattle, updateBattle } from '../world/battle';
 import { BOSS_NAMES } from '../world/invasion';
 import { regionById } from '../data/earth';
 import { onBossDown } from '../game/meta';
@@ -37,12 +39,13 @@ export const invasionScene = {
 export function startInvasion(city: City) {
   leaveGlobe(); TUT.leaveScene(); UI.clearGlobe();   // §7 scene hygiene: no globe UI, labels or Earth tutorial in battle
   invasionScene.city = city;
-  buildCity(hashString(city.id), city.size);
+  buildCity(hashString(city.id), city.size, city.id, city.region);
   G.mode = 'invasion'; G.paused = false; G.modeTime = 0; G.cargo = { humans: 0, biomass: 0, metal: 0, mass: 0 };
   const L = cityLevel(city), units = setupInvasion(L);
   // the biggest cities (size 5) keep a boss in reserve: it rises when their HQ falls
   G.inv.boss = city.size >= 5 ? { name: BOSS_NAMES[regionById(city.region).continent] || 'Giga-Mech' } : null;
-  makePlayer(0, 118); G.camYaw = 0; G.camDist = innerWidth < innerHeight ? 54 : 40; camera.position.set(0, 70, 190);
+  setupBattle(L);   // helicopters, jets, crowds, traffic, searchlights
+  makePlayer(0, 150); G.camYaw = 0; G.camDist = innerWidth < innerHeight ? 54 : 40; camera.position.set(0, 80, 230);
   UI.show(null); UI.hud(true); $('alert').hidden = true; $('m-cargo').hidden = true; $('deploy').hidden = false; renderDeployBar();
   $('mode-label').textContent = `${city.name} · defense ${L}`; $('t-send').hidden = true;
   UI.hint(`<kbd>WASD</kbd> fly · <kbd>click</kbd> ray · <kbd>Space</kbd> beam up soldiers + wrecks · <kbd>1</kbd>–<kbd>4</kbd> drop reinforcements`);
@@ -53,7 +56,7 @@ export function startInvasion(city: City) {
 }
 export function updateInvasion(dt: number) {
   const I = G.inv;
-  updatePlayer(dt); updateEnts(dt, updateLift); PROJ.update(dt); separateUnits(); updateWaves(dt); updateCamera(dt);
+  updatePlayer(dt); updateEnts(dt, updateLift); PROJ.update(dt); separateUnits(); updateWaves(dt); updateCamera(dt); updateCityDamage(dt); updateBattle(dt);
   const n = tickInvasion(dt); armyObjective();
   const B = I.bossEnt;
   $('objective').textContent = I.pylonsLeft > 0 ? `Destroy the shield pylons: ${I.pylonsLeft} left` : I.hq.hp > 0 ? `Destroy the defense HQ: ${Math.ceil(I.hq.hp / I.hq.maxHp * 100)}% left`
@@ -100,7 +103,7 @@ export function endInvasion(won: boolean) {
   const report = advanceDay(); writeSave(s);
   const row = (k: string, v: string | number, cls = '') => `<dt>${k}</dt><dd class="${cls}">${v}</dd>`;
   const sent = Object.values(I.stats.startArmy as Record<string, number>).reduce((a, b) => a + b, 0) + I.stats.deployed;
-  let html = row('Units sent into battle', sent) + row('Units lost', I.stats.lost, I.stats.lost ? 'lost' : '') + row('Earth soldiers surrendered', I.stats.surrendered) + row('Prisoners beamed up', I.stats.humans + I.stats.vehicles);
+  let html = row('Units sent into battle', sent) + row('Buildings destroyed', CITY_DMG.destroyed) + row('Units lost', I.stats.lost, I.stats.lost ? 'lost' : '') + row('Earth soldiers surrendered', I.stats.surrendered) + row('Prisoners beamed up', I.stats.humans + I.stats.vehicles);
   if (won) html += row('Daily tribute from this city', `${city.size} humans, ${city.size * 2} biomass, ${city.size} metal`, 'gain');
   $('end-eyebrow').textContent = `Invasion report · ${won ? 'Victory' : 'Defeat'}`;
   $('end-title').textContent = won ? `${city.name} has fallen` : `${city.name} pushed us back`;

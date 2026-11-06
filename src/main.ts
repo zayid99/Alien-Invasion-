@@ -23,6 +23,7 @@ import { META, rollDaily, checkAchievements } from './game/meta';
 import { initUFO, bankCargo } from './world/player';
 import { PROJ, updateLift, abductEnt, raiseAlert } from './world/combat';
 import { updateEnts } from './world/entity';
+import { CITY_DMG, damageBuildings } from './world/cityDamage';
 import { deployUnit } from './world/invasion';
 import { refreshSites, armyPower } from './game/campaign';
 import { enterTitle, updateTitle } from './scenes/title';
@@ -248,7 +249,7 @@ async function boot(data?: { save?: any }) {
 
 // Handy for testing in the browser console, e.g. __AI.give(100). Left out of the CrazyGames build (no console cheats).
 if (PLATFORM !== 'crazygames') (window as any).__AI = {
-  USED, instance, endInvasion, BEAM, renderFrame, abductEnt, raiseAlert, enterTitle, G, startMission, startInvasion, enterMothership, goGlobe, endNight, deployUnit, setQuality, INPUT, PROJ, renderer, camera, TUT, bankCargo,
+  USED, instance, endInvasion, CITY_DMG, damageBuildings, BEAM, renderFrame, abductEnt, raiseAlert, enterTitle, G, startMission, startInvasion, enterMothership, goGlobe, endNight, deployUnit, setQuality, INPUT, PROJ, renderer, camera, TUT, bankCargo,
   give(n = 50) { for (const r of ['humans', 'biomass', 'metal'] as const) G.save.res[r] += n; writeSave(G.save); },
   simulate(sec: number, dt = 1 / 30) { for (let t = 0; t < sec; t += dt) { step(dt); INPUT.endFrame(); } },
   updateEnts: (dt: number) => updateEnts(dt, updateLift),

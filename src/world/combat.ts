@@ -12,6 +12,7 @@ import type { Entity } from './entity';
 import { damagePlayer, saucerBurp } from './player';
 import { SAY, HUMAN_KINDS, ANIMAL_KINDS } from './lines';
 import { onAbduct, onCombo, onFullHold } from '../game/meta';
+import { buildingAt, hurtBuilding, damageBuildings } from './cityDamage';
 import { startMegaBeam } from './player';
 
 export interface Proj { pos: Vec3; vel: Vec3; team: string; dmg: number; splash: number; life: number; color: THREE.Color; width: number; trail: number; homing: any; turn: number; kind: string; hp: number; src: any; hitAir: boolean; hitGround: boolean; puffT: number }
@@ -46,7 +47,9 @@ export const PROJ = {
         if ((p.puffT -= dt) <= 0) { p.puffT = 0.08; FX.smoke(p.pos, 1, 0.5, 0.7, 0.1); }   // toon trail puff every 0.08 s
       }
       this._prev.copy(p.pos); p.pos.addScaledVector(p.vel, dt);
-      const hit = p.pos.y <= 0 ? 'ground' : this.collide(p, this._prev);
+      let hit = p.pos.y <= 0 ? 'ground' : this.collide(p, this._prev);
+      // city invasions: shots that fly into a building stop there and hurt it
+      if (!hit && G.mode === 'invasion' && p.pos.y < 140) { const b = buildingAt(p.pos.x, p.pos.y, p.pos.z); if (b) { hurtBuilding(b, p.dmg * (p.splash ? 1.6 : 0.5)); hit = 'ground'; } }
       if (hit || p.life <= 0 || p.hp < 0) { if (hit) this.impact(p, hit); this.list[i] = this.list[this.list.length - 1]; this.list.pop(); }
     }
   },
@@ -64,6 +67,7 @@ export const PROJ = {
   impact(p: Proj, hit: any) {
     if (p.splash > 0) {
       FX.explode(p.pos.clone().setY(Math.max(0.5, p.pos.y)), p.splash / 4.5);
+      if (G.mode === 'invasion') damageBuildings(p.pos.x, p.pos.z, p.splash + 2, p.dmg * 0.8);
       for (const e of G.ents) if (!e.dead && e.team !== p.team && e.team !== 'neutral' && e.hp > 0 && hdist(e.pos, p.pos) < p.splash + e.r && Math.abs(e.pos.y - p.pos.y) < 8) damageEnt(e, p.dmg * 0.6, p.src);
       if (p.team === 'earth' && G.player && hit !== G.player && G.player.pos.distanceTo(p.pos) < p.splash + 5) damagePlayer(p.dmg * 0.4);
     } else FX.spark(p.pos, p.color, 5, 6, 0.25, 0.3);

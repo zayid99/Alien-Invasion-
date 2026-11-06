@@ -144,6 +144,42 @@ function makeInk(css: number | null, fade: boolean): THREE.MeshBasicMaterial {
   return m;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Building collapse (city destruction): merged city meshes carry a per-vertex building id ('bid'); a 512×1
+// texture holds each building's collapse amount (0 standing … 1 rubble). The vertex stage squashes and tilts
+// the building toward the ground, so one merged mesh (and its ink hull) can crumble building by building.
+// ---------------------------------------------------------------------------------------------
+export const COLLAPSE_N = 512;
+export const COLLAPSE = { data: new Uint8Array(COLLAPSE_N), tex: null as THREE.DataTexture | null };
+export function collapseTexture() {
+  if (!COLLAPSE.tex) {
+    const t = new THREE.DataTexture(COLLAPSE.data, COLLAPSE_N, 1, THREE.RedFormat, THREE.UnsignedByteType);
+    t.minFilter = t.magFilter = THREE.NearestFilter; t.needsUpdate = true; COLLAPSE.tex = t;
+  }
+  return COLLAPSE.tex;
+}
+const CLP_HEAD = `attribute float bid;\nuniform sampler2D uCollapse;\n`;
+const CLP_BODY = `
+float clp = texture2D(uCollapse, vec2((bid + 0.5) / ${COLLAPSE_N}.0, 0.5)).r;
+float hy = transformed.y;
+transformed.x += sin(bid * 3.7) * clp * hy * 0.18;
+transformed.z += cos(bid * 2.3) * clp * hy * 0.18;
+transformed.y = hy * (1.0 - 0.93 * clp);
+`;
+/** Add the collapse step to a material's vertex shader (chains any existing onBeforeCompile). */
+export function withCollapse<T extends THREE.Material>(m: T): T {
+  const prev = m.onBeforeCompile, prevKey = m.customProgramCacheKey?.bind(m), tex = { value: collapseTexture() };
+  m.onBeforeCompile = (sh, r) => {
+    prev?.call(m, sh, r);
+    sh.uniforms.uCollapse = tex;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + CLP_HEAD).replace('#include <begin_vertex>', '#include <begin_vertex>\n' + CLP_BODY);
+  };
+  m.customProgramCacheKey = () => (prevKey ? prevKey() : '') + '|collapse';
+  return m;
+}
+/** An ink hull material that collapses with its building (a private instance: the shared INK stays untouched). */
+export function collapseInk() { return withCollapse(makeInk(null, true)); }
+
 /** The shared ink material: default width, distance fade on. */
 export const INK = makeInk(null, true);
 const INK_VARIANTS = new Map<string, THREE.MeshBasicMaterial>([['d|1', INK]]);

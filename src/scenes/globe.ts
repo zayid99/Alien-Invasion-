@@ -18,6 +18,7 @@ import { regionState, cityState, regionUnlocked, cityLevel, earthPower, armyPowe
 import { SFX } from '../core/audio';
 import { $, UI, ICON } from '../ui/dom';
 import { dailyCardHTML } from '../ui/meta';
+import { tickerLines } from '../game/news';
 import { arcDeg, clamp, hashString, latLonToVec3, mulberry32 } from '../core/util';
 import { toonMaterial, inkify, setRimColor } from '../gfx/toon';
 import { PAL, SKY } from '../gfx/palette';
@@ -414,7 +415,7 @@ export function enterGlobe() {
   GL.controls.enabled = true; GL.controls.target.set(0, 0, 0);
   const focus = GL.sel?.type === 'city' ? cityById(GL.sel.id) : { lat: 36, lon: -96 };
   camera.position.copy(latLonToVec3(focus.lat, focus.lon, 30)); camera.lookAt(0, 0, 0);
-  makeLabels(); UI.globe(true); renderPanel(); renderTop();
+  makeLabels(); UI.globe(true); renderPanel(); renderTop(); renderNews();
 }
 export function leaveGlobe() { if (GL.controls) GL.controls.enabled = false; UI.globe(false); for (const el of GL.labels.values()) el.style.opacity = '0'; }
 function makeLabels() {
@@ -540,7 +541,13 @@ export function updateGlobe(dt: number, t: number) {
     el.style.transform = `translate(${((_n.x * 0.5 + 0.5) * W).toFixed(0)}px, ${((-_n.y * 0.5 + 0.5) * H).toFixed(0)}px) translate(-50%, -100%)`;
   }
 }
-export function refreshGlobe() { syncSpread(); colorPins(); buildSites(); drawEarth(); renderPanel(); renderTop(); }
+export function refreshGlobe() { syncSpread(); colorPins(); buildSites(); drawEarth(); renderPanel(); renderTop(); renderNews(); }
+/** The Earth News ticker: recent headlines joined with stars; scroll speed scales with the text length. */
+function renderNews() {
+  const el = $('g-news-text'); if (!el) return;
+  const text = tickerLines().join('   ★   ');
+  if (el.textContent !== text) { el.textContent = text; el.style.setProperty('--news-dur', `${Math.max(25, text.length * 0.18)}s`); }
+}
 export function hideLabels() { for (const el of GL.labels.values()) el.style.opacity = '0'; }
 /** The painted world map (also used for the Earth seen from the mothership). */
 export function earthCanvas() { prepareFeatures(); drawEarth(true); return GL.canvas; }

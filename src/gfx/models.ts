@@ -8,6 +8,8 @@ import { Kit, cachedModel, box, cyl, sph, cone, ico, lathe, unitPrism, unitPyram
 import { fresnelMaterial } from '../core/engine';
 import { chance, pick, rand, reducedMotion } from '../core/util';
 import { PAL } from './palette';
+import { skinById } from '../data/skins';
+import type { Skin } from '../data/skins';
 import { toonMaterial, inkify } from './toon';
 
 /** §5 model colours that are not in the shared §2 palette. */
@@ -105,6 +107,31 @@ let ufoShared: { dome: THREE.MeshToonMaterial; glint: THREE.MeshBasicMaterial; b
  * makes x/z lean in the saucer's non-spinning frame. The bobble (a glow sphere centred on its own origin,
  * the antenna's only MeshBasic child) brightens and dims at 1.5 Hz by itself.
  */
+/** The saucer's hull, rim, panels and pilot in a skin's colours (data/skins.ts); cached per skin. */
+function ufoHull(skin: Skin) {
+  const g = cachedModel('ufo:' + skin.id, k => {
+    k.add(lathe([[5.3, -0.02], [5.25, 0.17], [4.3, 0.55], [2.6, 0.93], [0.01, 1.0]], 30), skin.hull, { m: 'gloss' });
+    k.add(lathe([[0.01, -1.25], [1.6, -1.18], [3.2, -0.85], [4.6, -0.36], [5.3, -0.02]], 30), skin.under, { m: 'metal' });
+    k.add(new THREE.TorusGeometry(5.08, 0.26, 8, 44), skin.rim, { r: [Math.PI / 2, 0, 0], m: 'metal' });   // covers the hull seam
+    k.add(cyl(1.75, 1.3, 0.28, 22), skin.collar, { p: [0, -1.32, 0], m: 'metal' });                       // emitter housing
+    k.add(new THREE.TorusGeometry(2.75, 0.09, 6, 30), skin.collar, { p: [0, 0.82, 0], r: [Math.PI / 2, 0, 0], m: 'metal' });   // dome collar
+    // six raised panels lying on the hull slope
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; k.add(box(0.5, 0.16, 1.2), skin.panel, { p: [Math.cos(a) * 3.6, 0.76, Math.sin(a) * 3.6], r: [0, -a, -0.22], m: 'metal' }); }
+    // pattern skins: flat patches on the hull slope (cow spots, pepperoni, camo)
+    if (skin.spots) for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2 + 0.4, r = i % 2 ? 4.4 : 3.0, y = i % 2 ? 0.45 : 0.82;
+      k.add(sph(0.62, 10, 6), skin.spots, { p: [Math.cos(a) * r, y, Math.sin(a) * r], r: [0, -a, -0.26], s: [1.1, 0.12, 0.8] }); }
+    k.add(cyl(0.45, 0.6, 0.5, 10), skin.collar, { p: [0, 1.15, 0], m: 'metal' });   // pilot seat
+    addGrayHead(k, 1.92, 0.75);
+  });
+  g.name = 'hull'; return g;
+}
+/** Swap a built saucer's skin in place (the hull is the body's 'hull' child). */
+export function setUfoSkin(ufo: { body: THREE.Group }, id: string) {
+  const old = ufo.body.getObjectByName('hull'); if (old?.userData.skin === id) return;
+  const hull = ufoHull(skinById(id)); hull.userData.skin = id;
+  if (old) ufo.body.remove(old);
+  ufo.body.add(hull);
+}
 export function makeUFO() {
   const group = new THREE.Group(), body = new THREE.Group(); group.add(body);
   const S = (ufoShared ??= {
@@ -115,17 +142,7 @@ export function makeUFO() {
     bobble: new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }),
     slime: new THREE.Color(PAL.slime),
   });
-  body.add(cachedModel('ufo', k => {
-    k.add(lathe([[5.3, -0.02], [5.25, 0.17], [4.3, 0.55], [2.6, 0.93], [0.01, 1.0]], 30), PAL.saucerHull, { m: 'gloss' });
-    k.add(lathe([[0.01, -1.25], [1.6, -1.18], [3.2, -0.85], [4.6, -0.36], [5.3, -0.02]], 30), PAL.saucerUnder, { m: 'metal' });
-    k.add(new THREE.TorusGeometry(5.08, 0.26, 8, 44), PAL.saucerRim, { r: [Math.PI / 2, 0, 0], m: 'metal' });   // covers the hull seam
-    k.add(cyl(1.75, 1.3, 0.28, 22), PAL.saucerCollar, { p: [0, -1.32, 0], m: 'metal' });                      // emitter housing
-    k.add(new THREE.TorusGeometry(2.75, 0.09, 6, 30), PAL.saucerCollar, { p: [0, 0.82, 0], r: [Math.PI / 2, 0, 0], m: 'metal' });   // dome collar
-    // six raised panels lying on the hull slope
-    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; k.add(box(0.5, 0.16, 1.2), PAL.saucerPanel, { p: [Math.cos(a) * 3.6, 0.76, Math.sin(a) * 3.6], r: [0, -a, -0.22], m: 'metal' }); }
-    k.add(cyl(0.45, 0.6, 0.5, 10), PAL.saucerCollar, { p: [0, 1.15, 0], m: 'metal' });   // pilot seat
-    addGrayHead(k, 1.92, 0.75);
-  }));
+  const hull = ufoHull(skinById('classic')); hull.userData.skin = 'classic'; body.add(hull);
   // Glass dome: transparent toon, never inked, drawn after the opaque pilot.
   const dome = new THREE.Mesh(new THREE.SphereGeometry(DOME_R, 26, 12, 0, Math.PI * 2, 0, Math.PI / 2), S.dome);
   dome.position.y = DOME_Y; dome.renderOrder = 2; body.add(dome);

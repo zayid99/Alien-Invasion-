@@ -107,7 +107,7 @@
     <dl class="stats" id="sum-body"></dl>
     <p class="fine" id="sum-note" style="text-align:left"></p>
     <div id="sum-goals"></div>
-    <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn" id="btn-sum-ms">Mothership</button><button class="btn primary" id="btn-sum-next">Back to Earth</button></div>
+    <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn reward" id="btn-sum-reward" hidden></button><button class="btn" id="btn-sum-ms">Mothership</button><button class="btn primary" id="btn-sum-next">Back to Earth</button></div>
   </div>
 </section>
 
@@ -117,7 +117,7 @@
     <div>
       <div class="eyebrow" id="ms-sub">High orbit · Day 1</div>
       <h2>Mothership</h2>
-      <div class="ms-meta"><button class="btn small" id="btn-cat">Catalogue</button><button class="btn small" id="btn-ach">Achievements</button></div>
+      <div class="ms-meta"><button class="btn small" id="btn-cat">Catalogue</button><button class="btn small" id="btn-ach">Achievements</button><button class="btn small" id="btn-hangar">Hangar</button></div>
     </div>
     <div class="wallet" id="ms-wallet"></div>
   </div>
@@ -168,7 +168,7 @@
     <h2 id="end-title">Earth has fallen</h2>
     <p id="end-lede" style="margin-top:8px"></p>
     <dl class="stats" id="end-body"></dl>
-    <div class="row" style="margin-top:12px;justify-content:flex-end"><button class="btn primary" id="btn-end">Continue</button></div>
+    <div class="row" style="margin-top:12px;justify-content:flex-end"><button class="btn reward" id="btn-end-reward" hidden></button><button class="btn primary" id="btn-end">Continue</button></div>
   </div>
 </section>
 
@@ -185,6 +185,7 @@
     <div class="g-right"><div class="wallet" id="g-wallet"></div><button class="btn" id="btn-g-ms"><svg class="ico glyph" viewBox="0 0 32 24" aria-hidden="true"><use href="#i-saucer"/></svg>Mothership</button><button id="btn-g-menu" class="icon-btn" aria-label="Menu">II</button></div>
   </header>
   <aside id="g-panel" class="g-panel" aria-live="polite"></aside>
+  <div id="g-news" class="g-news" aria-label="Earth News"><b>Earth News</b><div class="tick"><span id="g-news-text"></span></div></div>
   <p id="g-hint" class="g-hint">Drag to spin Earth · Tap a glowing site to pick a mission</p>
 </div>
 

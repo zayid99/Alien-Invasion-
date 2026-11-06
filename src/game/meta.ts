@@ -6,6 +6,7 @@ import type { Wallet } from '../data/balance';
 import { platform } from '../core/platform';
 import { hashString } from '../core/util';
 import { ARTIFACTS } from '../core/assets';
+import { SKINS } from '../data/skins';
 
 // ---------------------------------------------------------------- specimens
 export interface Specimen { kind: string; name: string; group: 'Humans' | 'Animals' | 'Farm finds' | 'Vehicles' }
@@ -161,8 +162,12 @@ export function checkAchievements() {
     G.save.ach[a.id] = G.save.day;
     META.notify({ kind: 'achievement', title: a.name, text: a.text });
     platform.happytime();
+    const skin = SKINS.find(k => k.ach === a.id);
+    if (skin && !G.save.skinsSeen.includes(skin.id)) { G.save.skinsSeen.push(skin.id); META.notify({ kind: 'achievement', title: `New saucer skin: ${skin.name}`, text: 'Equip it in the mothership hangar.' }); }
   }
 }
+/** Skins the player has earned (classic is always free). */
+export const skinUnlocked = (id: string) => { const k = SKINS.find(s => s.id === id); return !!k && (!k.ach || !!G.save.ach[k.ach]); };
 
 // ---------------------------------------------------------------- helpers + UI hook
 export function give(w: Partial<Wallet>) { for (const r of RES) if (w[r]) { G.save.res[r] += w[r]; G.save.totals[r] += w[r]; } }

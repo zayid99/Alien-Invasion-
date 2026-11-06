@@ -27,6 +27,10 @@ export interface SaveData {
   daily: { lastClaim: string; streak: number; completed: number; mission: { id: string; date: string; progress: number; done: boolean } | null };
   /** Records for achievements: best combo, MEGA BEAMs, full holds, perfect nights. */
   best: { combo: number; megas: number; fullHolds: number; perfect: number };
+  /** Equipped saucer skin and the skins the player has already been told about. */
+  skin: string; skinsSeen: string[];
+  /** Recent Earth News headlines (newest first). */
+  news: string[];
 }
 export const SAVE_VERSION = 3;
 const KEY = 'alien-invasion-save';
@@ -43,6 +47,7 @@ export function newSave(): SaveData {
     catalogue: {}, ach: {},
     daily: { lastClaim: '', streak: 0, completed: 0, mission: null },
     best: { combo: 0, megas: 0, fullHolds: 0, perfect: 0 },
+    skin: 'classic', skinsSeen: ['classic'], news: [],
   };
 }
 /** Fill in anything a newer version added, so old saves keep working. */
@@ -51,7 +56,7 @@ function migrate(s: any): SaveData | null {
   const d = newSave();
   return { ...d, ...s, v: SAVE_VERSION, tutorial: { ...d.tutorial, ...s.tutorial }, res: { ...d.res, ...s.res }, army: { ...d.army, ...s.army },
     up: { ...d.up, ...s.up }, totals: { ...d.totals, ...s.totals }, regions: s.regions || {}, cities: s.cities || {}, sites: s.sites || [], artifacts: s.artifacts || {},
-    catalogue: s.catalogue || {}, ach: s.ach || {}, daily: { ...d.daily, ...s.daily }, best: { ...d.best, ...s.best } };
+    catalogue: s.catalogue || {}, ach: s.ach || {}, daily: { ...d.daily, ...s.daily }, best: { ...d.best, ...s.best }, skin: s.skin || 'classic', skinsSeen: s.skinsSeen || ['classic'], news: s.news || [] };
 }
 export function loadSave(): SaveData | null {
   let local: SaveData | null = null, cloud: SaveData | null = null;

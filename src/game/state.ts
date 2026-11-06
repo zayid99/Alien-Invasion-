@@ -15,12 +15,14 @@ export interface NightState {
   spawnT: number; civT: number; hiding: number; quietT: number; ended: boolean; warned?: boolean; noMilitary: boolean;
   biome: string; regionName: string;
   /** Phase 1 meta: current combo and when it last grew, plus 'filled the hold' / 'took damage' flags for achievements. */
-  combo?: number; comboT?: number; fullHold?: boolean; hurt?: boolean;
+  combo?: number; comboT?: number; fullHold?: boolean; hurt?: boolean; maxAlert?: number; mega?: boolean;
 }
 
 export const G = {
   mode: 'boot' as Mode, paused: false, time: 0, modeTime: 0,
   save: newSave() as SaveData,
+  /** The last night's banked and lost cargo (rewarded-ad offers on the report). */
+  lastNight: null as { banked: Record<string, number>; lost: Record<string, number> } | null,
   world: null as THREE.Group | null,
   ents: [] as Entity[],
   obstacles: [] as Footprint[],

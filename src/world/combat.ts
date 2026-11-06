@@ -94,6 +94,7 @@ export function raiseAlert(n: number) {
   if (after > before) {
     SFX.play('alarm');
     // Loud and readable (Phase 1): a big comic banner saying what is coming, a red edge flash and the siren.
+    if (G.night) G.night.maxAlert = Math.max(G.night.maxAlert || 0, after);
     const what = ['', 'Police are on the way!', 'The army is coming!', 'Tanks rolling in!', 'Missile trucks deployed!', 'Everything they have!'][after];
     UI.banner(`ALERT ${after}<small>${what}</small>`, 'alert', 2.4);
     document.body.classList.remove('alarm'); void document.body.offsetWidth; document.body.classList.add('alarm');

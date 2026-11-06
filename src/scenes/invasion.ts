@@ -1,4 +1,6 @@
 // City invasion scene: setup, per-frame update, victory cinematic and the results screen.
+import { invasionNews } from '../game/news';
+import { retryOffer } from '../ui/rewards';
 import * as THREE from 'three';
 import { G } from '../game/state';
 import { camera } from '../core/engine';
@@ -16,7 +18,7 @@ import { setupInvasion, tickInvasion, separateUnits, updateWaves, deployUnit, su
 import { makePlayer, updatePlayer, updateCamera, playerHooks } from '../world/player';
 import { updateEnts } from '../world/entity';
 import { PROJ, updateLift } from '../world/combat';
-import { cityLevel, cityCaptured, invasionFailed, advanceDay } from '../game/campaign';
+import { cityLevel, cityCaptured, invasionFailed, advanceDay, cityState } from '../game/campaign';
 import { $, UI } from '../ui/dom';
 import { updateHUD, drawMinimap, renderDeployBar, setTimer } from '../ui/hud';
 import { TUT } from '../ui/tutorial';
@@ -87,6 +89,7 @@ export function endInvasion(won: boolean) {
   const from = won ? undefined : invasionScene.irisFrom();   // a defeat closes on the warping saucer
   SFX.stopLoops(); platform.gameplayStop(); G.mode = 'end'; BEAM.hide();
   if (won) cityCaptured(city); else invasionFailed(city);
+  invasionNews(city.name, won);
   const report = advanceDay(); writeSave(s);
   const row = (k: string, v: string | number, cls = '') => `<dt>${k}</dt><dd class="${cls}">${v}</dd>`;
   const sent = Object.values(I.stats.startArmy as Record<string, number>).reduce((a, b) => a + b, 0) + I.stats.deployed;
@@ -99,5 +102,10 @@ export function endInvasion(won: boolean) {
   $('end-body').innerHTML = html; $('btn-end').textContent = 'Back to Earth';
   SFX.play(won ? 'fanfare' : 'sad');
   invasionScene.done(won);
+  // Full Launch: after a defeat, a rewarded ad retries with the army that went in and no defense penalty.
+  retryOffer(!won, () => {
+    s.army = { ...I.stats.startArmy }; const st = cityState(city.id); st.attempts = Math.max(0, st.attempts - 1);
+    s.awareness = Math.max(0, s.awareness - 4); writeSave(s); UI.iris(() => startInvasion(city));
+  });
   UI.iris(() => { UI.hud(false); UI.hideComm(); UI.show('scr-end'); }, from);
 }

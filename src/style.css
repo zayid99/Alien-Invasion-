@@ -983,3 +983,32 @@ body.alarm::after {
 .goals .eyebrow { color: var(--slime); }
 .goals ol { margin: 6px 0 0 18px; display: grid; gap: 4px; font: 500 14.5px/1.35 var(--font-ui); }
 .goals b { color: var(--poster); }
+
+/* rewarded-ad offers (Full Launch): poster yellow with a play badge */
+.btn.reward { background: var(--poster); color: var(--ink); }
+.btn.reward .play { display: inline-grid; place-items: center; width: 1.4em; height: 1.4em; margin-right: .45em; border-radius: 50%; background: var(--ink); color: var(--poster); font-size: .7em; }
+
+/* hangar: saucer skin cards */
+.skins { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.skin { display: grid; justify-items: center; gap: 4px; padding: 12px 8px 10px; border-radius: 14px; border: 3px solid var(--ink); background: var(--violet-deep); color: var(--text); cursor: pointer; font: inherit; }
+.skin b { font: 600 15px/1.2 var(--font-ui); }
+.skin span { font: 500 12px/1.25 var(--font-ui); color: var(--dim); text-align: center; }
+.skin.on { background: var(--slime-deep); box-shadow: 0 0 0 3px var(--slime); }
+.skin.on span { color: var(--ink); font-weight: 700; }
+.skin.locked { background: rgba(26, 16, 51, .55); border-style: dashed; cursor: default; }
+.skin.locked .sw { filter: grayscale(.85) brightness(.6); }
+.skin .sw { position: relative; width: 96px; height: 44px; border-radius: 50%; border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); overflow: hidden; }
+.skin .sw u { position: absolute; width: 18px; height: 9px; border-radius: 50%; top: 9px; left: 24px; }
+.skin .sw u + u { top: 18px; left: 56px; width: 14px; }
+
+/* Earth News ticker on the globe (Phase 2) */
+.g-news {
+  position: absolute; left: 16px; bottom: 44px; width: min(620px, calc(100% - 420px)); display: flex; align-items: center; gap: 0; overflow: hidden;
+  border: 3px solid var(--ink); border-radius: 12px; background: var(--cream); box-shadow: 0 4px 0 var(--ink); pointer-events: none;
+}
+.g-news b { flex: none; padding: 5px 10px 4px; background: var(--tomato); color: #fff; font: 16px/1 var(--font-comic); letter-spacing: .06em; text-transform: uppercase; }
+.g-news .tick { overflow: hidden; flex: 1; white-space: nowrap; }
+.g-news .tick span { display: inline-block; padding-left: 100%; font: 600 14px/1 var(--font-ui); color: var(--ink); animation: news-scroll var(--news-dur, 40s) linear infinite; }
+@keyframes news-scroll { to { transform: translateX(-100%); } }
+@media (prefers-reduced-motion: reduce) { .g-news .tick span { animation: none; padding-left: 10px; } }
+@media (max-width: 760px) { .g-news { display: none; } }

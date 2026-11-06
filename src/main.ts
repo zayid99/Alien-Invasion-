@@ -17,7 +17,8 @@ import { FX, BEAM } from './gfx/fx';
 import { portrait } from './ui/portrait';
 import { $, UI } from './ui/dom';
 import { TUT } from './ui/tutorial';
-import { initMetaUI, maybeShowDailyDrop, nextGoalsHTML, showCatalogue, showAchievements } from './ui/meta';
+import { nightOffers, takeRewardedGap } from './ui/rewards';
+import { initMetaUI, maybeShowDailyDrop, nextGoalsHTML, showCatalogue, showAchievements, showHangar } from './ui/meta';
 import { META, rollDaily, checkAchievements } from './game/meta';
 import { initUFO, bankCargo } from './world/player';
 import { PROJ, updateLift, abductEnt, raiseAlert } from './world/combat';
@@ -91,13 +92,18 @@ missionHooks.summary = (title, html, note, tutorial) => {
   $('sum-eyebrow').textContent = tutorial ? 'Training report' : `Mission report · ${G.night?.regionName ?? ''}`;
   $('sum-title').textContent = title; $('sum-body').innerHTML = html; $('sum-note').textContent = note;
   $('sum-goals').innerHTML = tutorial ? '' : nextGoalsHTML();
+  if (tutorial || !G.lastNight) $('btn-sum-reward').hidden = true; else nightOffers(G.lastNight.banked, G.lastNight.lost);
   $('btn-sum-ms').hidden = tutorial; $('btn-sum-next').textContent = tutorial ? 'To the mothership' : 'Back to Earth';
   UI.iris(() => { UI.hud(false); UI.hideComm(); UI.show('scr-summary'); }, saucerPoint());
 };
 invasionScene.done = () => writeSave(G.save);
 invasionScene.irisFrom = saucerPoint;
 /** Leave a report screen: the midgame ad (a no-op until ads are enabled) plays while the iris is closed. */
-function betweenMissions(next: () => void, from?: { x: number; y: number }) { return UI.iris(async () => { await platform.midgameAd(); next(); }, from); }
+// CrazyGames pacing: midgame ads only after night 3, and never in a break where a rewarded ad was just watched.
+function betweenMissions(next: () => void, from?: { x: number; y: number }) {
+  const rewarded = takeRewardedGap();
+  return UI.iris(async () => { if (!rewarded && G.save.totals.missions >= 3) await platform.midgameAd(); next(); }, from);
+}
 
 /** A new game goes straight into the training night: Zix gives the orders over the radio (no text screen first). */
 function startNewGame(from?: { x: number; y: number }) { eraseSave(); G.save = newSave(); writeSave(G.save); UI.iris(() => startMission(null, true), from); }
@@ -135,6 +141,7 @@ function wireUI() {
   click('btn-g-ms', () => globeHooks.mothership());
   click('btn-cat', () => { SFX.play('ui'); showCatalogue(); });
   click('btn-ach', () => { SFX.play('ui'); showAchievements(); });
+  click('btn-hangar', () => { SFX.play('ui'); showHangar(); });
   click('btn-g-menu', () => setPaused(true));
   click('pause-btn', () => setPaused(true));
   click('btn-resume', () => setPaused(false));
@@ -241,7 +248,7 @@ async function boot(data?: { save?: any }) {
 
 // Handy for testing in the browser console, e.g. __AI.give(100). Left out of the CrazyGames build (no console cheats).
 if (PLATFORM !== 'crazygames') (window as any).__AI = {
-  USED, instance, BEAM, renderFrame, abductEnt, raiseAlert, enterTitle, G, startMission, startInvasion, enterMothership, goGlobe, endNight, deployUnit, setQuality, INPUT, PROJ, renderer, camera, TUT, bankCargo,
+  USED, instance, endInvasion, BEAM, renderFrame, abductEnt, raiseAlert, enterTitle, G, startMission, startInvasion, enterMothership, goGlobe, endNight, deployUnit, setQuality, INPUT, PROJ, renderer, camera, TUT, bankCargo,
   give(n = 50) { for (const r of ['humans', 'biomass', 'metal'] as const) G.save.res[r] += n; writeSave(G.save); },
   simulate(sec: number, dt = 1 / 30) { for (let t = 0; t < sec; t += dt) { step(dt); INPUT.endFrame(); } },
   updateEnts: (dt: number) => updateEnts(dt, updateLift),

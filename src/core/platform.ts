@@ -2,6 +2,16 @@
 import { ADS_ENABLED, PLATFORM } from '../config';
 
 let sdk: any = null;
+const FAKE_ADS = PLATFORM !== 'crazygames' && (() => { try { return localStorage.getItem('ai-fake-ads') === '1'; } catch { return false; } })();
+/** Test-only stand-in for an ad: a dark full-screen card for `ms`, audio paused like a real ad. */
+function fakeAd(label: string, ms: number): Promise<boolean> {
+  return new Promise(res => {
+    const d = document.createElement('div'); d.textContent = `${label} (test)`;
+    d.style.cssText = 'position:fixed;inset:0;z-index:99;display:grid;place-items:center;background:#0f0828ee;color:#fff;font:600 28px system-ui';
+    document.body.appendChild(d); platform.onAdPause?.(true);
+    setTimeout(() => { d.remove(); platform.onAdPause?.(false); res(true); }, ms);
+  });
+}
 let inGameplay = false;
 const lastCloudWrite = new Map<string, number>();
 const pendingCloud = new Map<string, ReturnType<typeof setTimeout>>();
@@ -35,8 +45,14 @@ export const platform = {
   gameplayStop() { if (!inGameplay) return; inGameplay = false; safe(() => sdk?.game.gameplayStop()); },
   /** Moments of joy (city captured, big upgrade). */
   happytime() { safe(() => sdk?.game.happytime()); },
+  /**
+   * Can rewarded offers be shown? Only with ads on (Full Launch) and the SDK loaded. Outside the CrazyGames build,
+   * localStorage 'ai-fake-ads' = '1' fakes ads (a 1.5 s placeholder) so the flow can be tested.
+   */
+  adsAvailable(): boolean { return (ADS_ENABLED && !!sdk) || FAKE_ADS; },
   /** Between missions only. Does nothing while ADS_ENABLED is false (basic launch). */
   midgameAd(): Promise<void> {
+    if (FAKE_ADS) return fakeAd('Midgame ad', 1000).then(() => undefined);
     if (!ADS_ENABLED || !sdk) return Promise.resolve();
     return new Promise(res => {
       const done = () => { platform.onAdPause?.(false); res(); };
@@ -44,6 +60,7 @@ export const platform = {
     });
   },
   rewardedAd(): Promise<boolean> {
+    if (FAKE_ADS) return fakeAd('Rewarded ad', 1500);
     if (!ADS_ENABLED || !sdk) return Promise.resolve(false);
     return new Promise(res => {
       safe(() => sdk.ad.requestAd('rewarded', {

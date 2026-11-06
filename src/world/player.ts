@@ -4,7 +4,7 @@ import { G } from '../game/state';
 import { scene, camera, LIGHT } from '../core/engine';
 import { INPUT } from '../core/input';
 import { SFX } from '../core/audio';
-import { makeUFO } from '../gfx/models';
+import { makeUFO, setUfoSkin } from '../gfx/models';
 import { FX, FT, BEAM, FXC, shellMaterial } from '../gfx/fx';
 import { PAL } from '../gfx/palette';
 import { UI } from '../ui/dom';
@@ -49,6 +49,7 @@ export function playerStats() {
 }
 export function makePlayer(x: number, z: number) {
   const s = playerStats();
+  setUfoSkin(UFO, G.save.skin);
   UFO.group.position.set(x, G.ufoY, z); UFO.group.visible = true; UFO.group.rotation.set(0, 0, 0); UFO.body.scale.set(1, 1, 1);
   G.player = { obj: UFO.group, pos: UFO.group.position, vel: new V3(), stats: s, shield: s.maxShield, maxShield: s.maxShield, boost: 1, beamOn: false,
     dead: false, hurtT: 9, rayCool: 0, sending: 0, pulse: 0, hitFlash: 0, liftingMass: 0, hh: 0, lowWarned: false, moved: 0 };
@@ -60,7 +61,7 @@ export function startMegaBeam() {
   const P = G.player; if (!P || P.dead) return;
   if (!(P.mega > 0)) { P.baseStats = P.stats; P.stats = { ...P.stats, beamRadius: P.stats.beamRadius * 1.6, liftSpeed: P.stats.liftSpeed * 1.8, maxLift: P.stats.maxLift + 4 }; }
   P.mega = MEGA_TIME; P.pulse = 1; G.shake = Math.max(G.shake, 0.5);
-  UI.banner('MEGA BEAM!', 'mega', 2.2); SFX.play('fanfare'); onMegaBeam();
+  UI.banner('MEGA BEAM!', 'mega', 2.2); SFX.play('fanfare'); onMegaBeam(); if (G.night) G.night.mega = true;
 }
 function endMegaBeam(P: any) { if (P.baseStats) P.stats = P.baseStats; P.baseStats = null; P.mega = 0; }
 export function updatePlayer(dt: number) {

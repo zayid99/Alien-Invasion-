@@ -14,6 +14,12 @@ import {
   streakReward, dailyDef, dailyReward, today, walletText,
 } from '../game/meta';
 import { $, UI, ICON } from './dom';
+import { platform } from '../core/platform';
+import { offer } from './rewards';
+import { give, skinUnlocked } from '../game/meta';
+import { SKINS } from '../data/skins';
+import { setUfoSkin } from '../gfx/models';
+import { UFO } from '../world/player';
 
 const wtags = (w: Partial<Wallet>) => RES.filter(r => w[r]).map(r => `<span class="${r}">${ICON(r)}${w[r]}</span>`).join('');
 
@@ -55,7 +61,11 @@ export function maybeShowDailyDrop(after?: () => void) {
   openModal('Daily supply drop', next > 1 ? `Day ${next} in a row!` : 'Welcome back, Commander', `
     <p class="sub">The mothership sends supplies every day. Come back tomorrow to keep the streak going. Day 7 is a big one!</p>
     <div class="drops">${tiles}</div>
-    <div class="row" style="justify-content:center;margin-top:14px"><button class="btn slime" id="btn-claim">Claim day ${next}</button></div>`, false, after || null);
+    <div class="row" style="justify-content:center;margin-top:14px"><button class="btn reward" id="btn-claim2" hidden></button><button class="btn slime" id="btn-claim">Claim day ${next}</button></div>`, false, after || null);
+  offer($<HTMLButtonElement>('btn-claim2'), `Claim ×2`, () => {
+    const { streak, reward } = claimDaily(); give(reward);
+    UI.toast(`Day ${streak} supplies ×2: ${walletText(reward)} twice`, 'good', 2.8); closeModal();
+  });
   $('btn-claim').addEventListener('click', () => {
     const { streak, reward } = claimDaily(); writeSave(G.save); SFX.play('buy');
     UI.toast(`Day ${streak} supplies: ${walletText(reward)}`, 'good', 2.6);
@@ -99,6 +109,22 @@ export function showAchievements() {
     return `<div class="ach${got ? ' got' : ''}"><i>${got ? '★' : '☆'}</i><div><b>${a.name}</b><span>${a.text}${got ? ` · day ${got}` : ''}</span></div></div>`;
   }).join('') + '</div>';
   openModal('Hall of conquest', 'Achievements', h, true);
+}
+/** The hangar: earned saucer skins (Phase 2). Equipping one repaints the saucer right away. */
+export function showHangar() {
+  const render = () => SKINS.map(k => {
+    const got = skinUnlocked(k.id), on = G.save.skin === k.id;
+    const sw = `background:radial-gradient(ellipse 50% 42% at 50% 40%, ${k.hull} 0 62%, ${k.rim} 63% 74%, ${k.under} 75% 100%)`;
+    return `<button class="skin${got ? '' : ' locked'}${on ? ' on' : ''}" data-skin="${k.id}" ${got ? '' : 'disabled'}>
+      <i class="sw" style="${sw}">${k.spots ? `<u style="background:${k.spots}"></u><u style="background:${k.spots}"></u>` : ''}</i>
+      <b>${k.name}</b><span>${on ? 'Equipped' : got ? 'Tap to equip' : `Locked: ${k.unlock}`}</span></button>`;
+  }).join('');
+  openModal('Mothership hangar', 'Saucer skins', `<p class="sub">Earn skins by playing. They change how your saucer looks, nothing else.</p><div class="skins">${render()}</div>`, true);
+  $('meta-body').querySelector('.skins').addEventListener('click', e => {
+    const b = (e.target as HTMLElement).closest('[data-skin]') as HTMLButtonElement; if (!b || b.disabled) return;
+    G.save.skin = b.dataset.skin; writeSave(G.save); setUfoSkin(UFO, G.save.skin); SFX.play('buy');
+    showHangar();
+  });
 }
 /** Labels for the mothership buttons. */
 export function metaButtonLabels() {

@@ -19,8 +19,16 @@ export interface SaveData {
   sites: MissionSite[];
   artifacts: Record<string, number>;
   totals: { humans: number; biomass: number; metal: number; abducted: number; unitsLost: number; missions: number; citiesTaken: number; playTime: number };
+  /** How many of each specimen kind were ever beamed up (game/meta.ts). */
+  catalogue: Record<string, number>;
+  /** Achievement id -> game day it was earned. */
+  ach: Record<string, number>;
+  /** Daily supply streak + today's daily mission. Dates are the player's local YYYY-MM-DD. */
+  daily: { lastClaim: string; streak: number; completed: number; mission: { id: string; date: string; progress: number; done: boolean } | null };
+  /** Records for achievements: best combo, MEGA BEAMs, full holds, perfect nights. */
+  best: { combo: number; megas: number; fullHolds: number; perfect: number };
 }
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 const KEY = 'alien-invasion-save';
 
 export function newSave(): SaveData {
@@ -32,6 +40,9 @@ export function newSave(): SaveData {
     up: { beam: 0, shield: 0, engine: 0, ray: 0, cargo: 0 },
     regions: {}, cities: {}, sites: [], artifacts: {},
     totals: { humans: 0, biomass: 0, metal: 0, abducted: 0, unitsLost: 0, missions: 0, citiesTaken: 0, playTime: 0 },
+    catalogue: {}, ach: {},
+    daily: { lastClaim: '', streak: 0, completed: 0, mission: null },
+    best: { combo: 0, megas: 0, fullHolds: 0, perfect: 0 },
   };
 }
 /** Fill in anything a newer version added, so old saves keep working. */
@@ -39,7 +50,8 @@ function migrate(s: any): SaveData | null {
   if (!s || typeof s !== 'object' || typeof s.v !== 'number') return null;
   const d = newSave();
   return { ...d, ...s, v: SAVE_VERSION, tutorial: { ...d.tutorial, ...s.tutorial }, res: { ...d.res, ...s.res }, army: { ...d.army, ...s.army },
-    up: { ...d.up, ...s.up }, totals: { ...d.totals, ...s.totals }, regions: s.regions || {}, cities: s.cities || {}, sites: s.sites || [], artifacts: s.artifacts || {} };
+    up: { ...d.up, ...s.up }, totals: { ...d.totals, ...s.totals }, regions: s.regions || {}, cities: s.cities || {}, sites: s.sites || [], artifacts: s.artifacts || {},
+    catalogue: s.catalogue || {}, ach: s.ach || {}, daily: { ...d.daily, ...s.daily }, best: { ...d.best, ...s.best } };
 }
 export function loadSave(): SaveData | null {
   let local: SaveData | null = null, cloud: SaveData | null = null;
@@ -56,5 +68,6 @@ export function writeSave(s: SaveData) {
 export function eraseSave() { try { localStorage.removeItem(KEY); } catch { /* ignore */ } platform.cloudSet(KEY, 'null'); }
 
 // Per-device preferences (sound, graphics).
-export const prefs: { muted?: boolean; quality?: 'high' | 'low' } = (() => { try { return JSON.parse(localStorage.getItem('alien-invasion-prefs') || '{}'); } catch { return {}; } })();
+/** quality = what the game runs at; qualityUser = what the player picked in the pause menu (auto never overrides it). */
+export const prefs: { muted?: boolean; quality?: 'high' | 'low'; qualityUser?: 'high' | 'low' } = (() => { try { return JSON.parse(localStorage.getItem('alien-invasion-prefs') || '{}'); } catch { return {}; } })();
 export const savePrefs = () => { try { localStorage.setItem('alien-invasion-prefs', JSON.stringify(prefs)); } catch { /* ignore */ } };

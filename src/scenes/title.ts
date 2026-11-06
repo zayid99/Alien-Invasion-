@@ -11,7 +11,6 @@ import { makePlayer, UFO } from '../world/player';
 import { updateEnts } from '../world/entity';
 import { updateLift } from '../world/combat';
 import { $, UI } from '../ui/dom';
-import { portrait } from '../ui/portrait';
 import { TUT } from '../ui/tutorial';
 import { reducedMotion } from '../core/util';
 import { PAL } from '../gfx/palette';
@@ -44,21 +43,5 @@ export function updateTitle(dt: number) {
   const a = t * 0.05 + 0.8; camera.position.set(P.pos.x + Math.cos(a) * 48, 30, P.pos.z + Math.sin(a) * 48); camera.lookAt(P.pos.x, 6, P.pos.z);
   updateEnts(dt, updateLift);
 }
-export const BRIEF = `Commander <b>Zix</b>. The High Council has chosen a planet called <b>Earth</b>.
-Its inhabitants, "humans", are loud and confused, and they will make excellent servants.
-Your orders:
-1. <b>Abduct</b> humans, livestock and machines from every continent.
-2. <b>Build an army</b> on the mothership.
-3. <b>Conquer</b> Earth's great cities, one by one.
-First, a training night. Do not disappoint us.`;
-let typer: ReturnType<typeof setInterval> = null;
-export function enterBriefing() {
-  G.mode = 'briefing'; UI.show('scr-briefing'); portrait.attach($('brief-face'));
-  const el = $('brief-text'); let i = 0; el.innerHTML = ''; clearInterval(typer);
-  typer = setInterval(() => {
-    i += 3; const lt = BRIEF.lastIndexOf('<', i - 1), gt = BRIEF.lastIndexOf('>', i - 1); if (lt > gt) i = BRIEF.indexOf('>', lt) + 1;
-    if (i >= BRIEF.length) { clearInterval(typer); i = BRIEF.length; }
-    el.innerHTML = BRIEF.slice(0, i); portrait.talk = 0.4;
-  }, 30);
-}
-export function finishBriefing() { clearInterval(typer); $('brief-text').innerHTML = BRIEF; }
+/** The opening orders, the first line of the training night (there is no text screen before play). */
+export const BRIEF = 'Commander! The High Council wants <b>Earth</b>: beam up humans, build an army, <b>conquer every city</b>.';

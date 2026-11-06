@@ -10,7 +10,9 @@ import { setInkResolution } from '../gfx/toon';
 
 export const canvas = document.getElementById('game') as HTMLCanvasElement;
 export const IS_TOUCH = matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window && navigator.maxTouchPoints > 0);
-export let QUALITY: 'high' | 'low' = prefs.quality || (IS_TOUCH ? 'low' : 'high');
+/** Low-memory devices (e.g. 4 GB Chromebooks, a big share of CrazyGames players) start on low graphics. */
+const LOW_MEM = ((navigator as any).deviceMemory ?? 8) <= 4;
+export let QUALITY: 'high' | 'low' = prefs.qualityUser || prefs.quality || (IS_TOUCH || LOW_MEM ? 'low' : 'high');
 
 // Antialias on every device (the low path has no composer, so this is its only MSAA).
 // Neutral tone mapping keeps candy hues saturated (ACES greyed them out). Toon materials need no
@@ -71,8 +73,9 @@ class ToonOutputPass extends OutputPass {
 }
 
 const pixelRatio = () => Math.min(devicePixelRatio || 1, QUALITY === 'high' ? 1.75 : 1.25);
-export function setQuality(q: 'high' | 'low') {
-  QUALITY = q; prefs.quality = q; savePrefs();
+/** `user`: the player chose it in the menu, so the automatic frame-rate check leaves it alone from then on. */
+export function setQuality(q: 'high' | 'low', user = false) {
+  QUALITY = q; prefs.quality = q; if (user) prefs.qualityUser = q; savePrefs();
   renderer.setPixelRatio(pixelRatio());
   if (q === 'high' && !composer) {
     // Render (MSAA x4) -> Bloom -> ToonOutput. The bloom input is linear HDR before tone mapping, where a pale

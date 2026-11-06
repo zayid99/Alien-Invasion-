@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Alien Invasion</title>
+<title>Alien Invasion: Conquer Earth</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Play a gray alien commander: abduct humans, cows and cars, build an army on your mothership and conquer every city on Earth.">
 <meta name="theme-color" content="#0f0828">
@@ -43,6 +43,7 @@
       <div id="timer">2:30</div>
       <div id="alert" title="How alarmed Earth is"><span>Alert</span><i></i><i></i><i></i><i></i><i></i></div>
       <div id="objective"></div>
+      <div id="combo" hidden><b>×2</b><span>Combo</span><i><u></u></i></div>
     </div>
     <div class="res-wrap">
       <div id="res">
@@ -76,16 +77,16 @@
 <section id="scr-title" class="screen" hidden>
   <div class="logo">
     <div class="eyebrow">A Gray Empire production</div>
-    <h1 aria-label="Alien Invasion!">
+    <h1 aria-label="Alien Invasion: Conquer Earth">
       <span class="logo-alien" aria-hidden="true">AL<span class="logo-i">I<svg class="logo-dot" viewBox="0 0 32 24"><use href="#i-saucer"/></svg></span>EN<span class="slime-cap"></span></span>
       <span class="logo-ribbon" aria-hidden="true">INVASION!</span>
+      <span class="logo-sub" aria-hidden="true">Conquer Earth</span>
     </h1>
   </div>
   <p class="tagline">You are a gray alien commander. <b>Beam up</b> humans, cows and cars. <b>Build</b> an army. <b>Conquer</b> every city on Earth.</p>
   <div class="row">
     <button class="btn primary" id="btn-continue" hidden>Continue</button>
     <button class="btn primary" id="btn-new">New game</button>
-    <button class="btn" id="btn-howto">How to play</button>
   </div>
   <p class="fine">Keyboard + mouse or touch · Sound on recommended · <kbd>M</kbd> mutes</p>
 </section>
@@ -98,45 +99,6 @@
   </div>
 </div>
 
-<!-- ================= HOW TO PLAY ================= -->
-<section id="scr-howto" class="screen dim" hidden>
-  <div class="card">
-    <div class="eyebrow">Flight manual</div>
-    <h2>How to play</h2>
-    <ol class="steps">
-      <li><span><b>Pick a target on Earth.</b> Spin the globe and choose a glowing mission site in a region you have unlocked.</span></li>
-      <li><span><b>Abduct.</b> Each night you have 2½ minutes. Hold the tractor beam over people, animals and vehicles to pull them into your saucer.</span></li>
-      <li><span><b>Bank your cargo.</b> The hold fills up. Send cargo to the mothership before your shield breaks, or you lose it.</span></li>
-      <li><span><b>Build.</b> On the mothership, spend humans, biomass and metal on army units and saucer upgrades.</span></li>
-      <li><span><b>Invade cities.</b> Pick a city on the globe and launch an invasion. Destroy its shield pylons, then its defense HQ. Captured cities pay you every day.</span></li>
-    </ol>
-    <div class="keys">
-      <kbd>W A S D</kbd><span>Fly (arrow keys work too)</span>
-      <kbd>Space</kbd><span>Hold for tractor beam</span>
-      <kbd>Mouse</kbd><span>Hold left button to fire the stun ray at the cursor</span>
-      <kbd>Shift</kbd><span>Boost</span>
-      <kbd>R</kbd><span>Send cargo to the mothership</span>
-      <kbd>Q / E</kbd><span>Turn the camera · wheel zooms</span>
-      <kbd>1 2 3 4</kbd><span>During the invasion: drop reinforcements</span>
-      <kbd>P / Esc</kbd><span>Pause</span>
-    </div>
-    <p class="fine" style="margin-top:14px;text-align:left">The stun ray never kills. The Empire needs humans alive. Stunned people and wrecked vehicles are easy to beam up.</p>
-    <div class="row" style="margin-top:16px"><button class="btn primary" id="btn-howto-back">Got it</button></div>
-  </div>
-</section>
-
-<!-- ================= BRIEFING ================= -->
-<section id="scr-briefing" class="screen dim" hidden>
-  <div class="card capped"><div class="slime-cap" aria-hidden="true"></div>
-    <div class="eyebrow">Incoming transmission · High Council of the Gray Empire</div>
-    <div class="brief" style="margin-top:14px">
-      <div class="face" id="brief-face"></div>
-      <p id="brief-text"></p>
-    </div>
-    <div class="row" style="margin-top:18px;justify-content:flex-end"><button class="btn" id="btn-brief-skip">Skip</button><button class="btn slime" id="btn-accept">Start training</button></div>
-  </div>
-</section>
-
 <!-- ================= NIGHT SUMMARY ================= -->
 <section id="scr-summary" class="screen dim" hidden>
   <div class="card capped"><div class="slime-cap" aria-hidden="true"></div>
@@ -144,6 +106,7 @@
     <h2 id="sum-title">Night complete</h2>
     <dl class="stats" id="sum-body"></dl>
     <p class="fine" id="sum-note" style="text-align:left"></p>
+    <div id="sum-goals"></div>
     <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn" id="btn-sum-ms">Mothership</button><button class="btn primary" id="btn-sum-next">Back to Earth</button></div>
   </div>
 </section>
@@ -154,6 +117,7 @@
     <div>
       <div class="eyebrow" id="ms-sub">High orbit · Day 1</div>
       <h2>Mothership</h2>
+      <div class="ms-meta"><button class="btn small" id="btn-cat">Catalogue</button><button class="btn small" id="btn-ach">Achievements</button></div>
     </div>
     <div class="wallet" id="ms-wallet"></div>
   </div>
@@ -238,6 +202,14 @@
   </div>
   <p class="load-text" id="load-text">Warming up the saucer…</p>
   <div class="load-meter" aria-hidden="true"><i id="load-fill"></i></div>
+</div>
+<div id="banner" aria-hidden="true"></div>
+<div id="pops" aria-live="polite"></div>
+<div id="meta-modal" hidden>
+  <div class="card meta-card" role="dialog" aria-labelledby="meta-title">
+    <header><div><div class="eyebrow" id="meta-eyebrow"></div><h2 id="meta-title"></h2></div><button class="icon-btn" id="meta-close" aria-label="Close">✕</button></header>
+    <div id="meta-body"></div>
+  </div>
 </div>
 <div id="iris" aria-hidden="true"></div>
 <div id="fail" hidden><p>This game needs WebGL, which your browser could not start.<br>Try another browser, or turn on hardware acceleration.</p></div>

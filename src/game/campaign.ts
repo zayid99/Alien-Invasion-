@@ -1,4 +1,5 @@
 // The world campaign: days, regional alert, global awareness, tribute, unlocks and mission sites.
+import { checkAchievements } from './meta';
 import { G } from './state';
 import { REGIONS, CITIES, regionById, cityById, TIER_NAMES } from '../data/earth';
 import type { City, Region } from '../data/earth';
@@ -63,6 +64,7 @@ export function missionDone(site: MissionSite | null, humans: number, total: num
   s.awareness = clamp(s.awareness + 0.8 + total * 0.08, 0, 100);
 }
 export function cityCaptured(c: City) {
+  queueMicrotask(checkAchievements);
   const s = G.save, st = cityState(c.id); st.occupied = true; st.since = s.day; s.totals.citiesTaken++;
   regionState(c.region).alert = clamp(regionState(c.region).alert + 40, 0, 100); s.awareness = clamp(s.awareness + 6 + c.size, 0, 100);
 }

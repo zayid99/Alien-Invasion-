@@ -6,7 +6,7 @@ import { UNIT_TYPES, UNIT_KEYS } from '../data/units';
 import { canAfford } from '../data/balance';
 import { fmtTime, clamp, reducedMotion } from '../core/util';
 import { $, UI, ICON, numHTML, replayClass } from './dom';
-import { alertLevel } from '../world/combat';
+import { alertLevel, COMBO_GAP } from '../world/combat';
 
 // ---------------- meters ----------------
 // The meter markup (label, .bar > i, .val) is built once in index.html; we only move the fill and change the
@@ -100,7 +100,20 @@ export function updateHUD() {
     setTimer(tut ? 'Training' : fmtTime(G.nightT));
     $('timer').classList.toggle('urgent', !tut && G.nightT <= 10);   // tomato + 1 Hz pulse in the last 10 s
     setAlert(alertLevel());
-  } else $('timer').classList.remove('urgent');
+    setCombo();
+  } else { $('timer').classList.remove('urgent'); $('combo').hidden = true; }
+}
+
+// ---------------- combo meter (Phase 1): ×N with a draining bar; turns slime green during the MEGA BEAM ----------------
+let comboShown = -1;
+function setCombo() {
+  const N = G.night, P = G.player, el = $('combo');
+  const left = N && N.combo >= 2 ? 1 - (G.time - (N.comboT ?? 0)) / COMBO_GAP : 0, mega = P?.mega > 0;
+  if (left <= 0 && !mega) { if (!el.hidden) el.hidden = true; comboShown = -1; return; }
+  el.hidden = false; el.classList.toggle('mega', mega);
+  const label = mega ? `MEGA ${Math.ceil(P.mega)}s` : `×${N.combo}`;
+  if (comboShown !== (mega ? -2 - Math.ceil(P.mega) : N.combo)) { comboShown = mega ? -2 - Math.ceil(P.mega) : N.combo; el.querySelector('b').textContent = label; el.querySelector('span').textContent = mega ? 'Beam' : 'Combo'; }
+  (el.querySelector('u') as HTMLElement).style.transform = `scaleX(${mega ? P.mega / 8 : clamp(left, 0, 1)})`;
 }
 
 // ---------------- invasion deploy bar ----------------

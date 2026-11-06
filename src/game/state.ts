@@ -14,6 +14,8 @@ export interface NightState {
   banked: { humans: number; biomass: number; metal: number };
   spawnT: number; civT: number; hiding: number; quietT: number; ended: boolean; warned?: boolean; noMilitary: boolean;
   biome: string; regionName: string;
+  /** Phase 1 meta: current combo and when it last grew, plus 'filled the hold' / 'took damage' flags for achievements. */
+  combo?: number; comboT?: number; fullHold?: boolean; hurt?: boolean;
 }
 
 export const G = {

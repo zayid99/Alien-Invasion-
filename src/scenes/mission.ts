@@ -25,6 +25,8 @@ import { TUT } from '../ui/tutorial';
 import { cone } from '../gfx/kit';
 import { PAL } from '../gfx/palette';
 import { leaveGlobe } from './globe';
+import { BRIEF } from './title';
+import { onNightEnd } from '../game/meta';
 
 export const missionHooks = { summary: (_title: string, _html: string, _note: string, _tutorial: boolean) => {} };
 let marker: THREE.Mesh = null;
@@ -59,7 +61,7 @@ function startTraining() {
   const N = G.night; let cop: Entity = null;
   const touch = INPUT.touch;
   TUT.start('Training', [
-    { text: `Welcome to Earth, Commander! Fly your saucer with ${touch ? 'the <b>joystick</b>' : '<b>W A S D</b> or the arrow keys'}.`, check: () => G.player.moved > 30 },
+    { text: `${BRIEF} Fly your saucer with ${touch ? 'the <b>joystick</b>' : '<b>W A S D</b> or the arrow keys'}.`, check: () => G.player.moved > 30 },
     { text: `See the cow under the yellow arrow? Fly over it and ${touch ? 'hold <b>BEAM</b>' : 'hold <b>SPACE</b>'} to beam it up.`, enter: () => target(nearest('cow')), check: () => { const t = G.ents.find(e => e.tutTarget); if (!t || t.dead) target(nearest('cow')); return N.stats.animals >= 1; } },
     { text: 'Now a human. They run when they see you, so get right above one and hold the beam.', enter: () => target(nearest('civilian')), check: () => { const t = G.ents.find(e => e.tutTarget); if (!t || t.dead) target(nearest('civilian')); return N.stats.humans >= 1; } },
     { text: `Your cargo hold is filling up. ${touch ? 'Tap <b>SEND</b>' : 'Press <b>R</b>'} to teleport the cargo to the mothership.`, enter: () => target(null), check: () => N.banked.humans + N.banked.biomass > 0 },
@@ -92,7 +94,7 @@ export function endNight(reason: 'dawn' | 'destroyed' | 'abort' | 'tutorial') {
   SFX.stopLoops(); TUT.stop(); platform.gameplayStop();
   G.save.totals.playTime += CFG.nightLength - Math.max(0, G.nightT);
   let report: DayReport = null;
-  if (!N.tutorial) { missionDone(N.site, N.stats.humans, N.stats.humans + N.stats.animals + N.stats.vehicles); report = advanceDay(); }
+  if (!N.tutorial) { missionDone(N.site, N.stats.humans, N.stats.humans + N.stats.animals + N.stats.vehicles); report = advanceDay(); onNightEnd(reason === 'dawn' && !N.hurt); }
   const row = (k: string, v: string | number, cls = '') => `<dt>${k}</dt><dd class="${cls}">${v}</dd>`;
   let html = row('Humans abducted', N.stats.humans) + row('Animals abducted', N.stats.animals) + row('Vehicles abducted', N.stats.vehicles);
   if (N.stats.artifacts) html += row('Earth artifacts found', N.stats.artifacts, 'gain');

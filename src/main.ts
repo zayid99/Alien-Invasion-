@@ -1,4 +1,4 @@
-// Alien Invasion: boot, game flow between scenes, buttons, pause menu and the main loop.
+// Alien Invasion: Conquer Earth. Boot, game flow between scenes, buttons, pause menu and the main loop.
 import './style.css';
 import * as THREE from 'three';
 import { G } from './game/state';
@@ -6,9 +6,9 @@ import { renderer, renderFrame, setQuality, QUALITY, camera, scene } from './cor
 import { INPUT } from './core/input';
 import { SFX } from './core/audio';
 import { platform } from './core/platform';
-import { loadSave, writeSave, newSave, eraseSave } from './core/save';
+import { loadSave, writeSave, newSave, eraseSave, prefs } from './core/save';
 import type { MissionSite } from './core/save';
-import { preload, allModelIds } from './core/assets';
+import { preload, allModelIds, USED, FIRST_NIGHT } from './core/assets';
 import type { UpgradeKey } from './data/balance';
 import type { UnitKey } from './data/units';
 import type { City } from './data/earth';
@@ -16,15 +16,17 @@ import { FX, BEAM } from './gfx/fx';
 import { portrait } from './ui/portrait';
 import { $, UI } from './ui/dom';
 import { TUT } from './ui/tutorial';
+import { initMetaUI, maybeShowDailyDrop, nextGoalsHTML, showCatalogue, showAchievements } from './ui/meta';
+import { META, rollDaily, checkAchievements } from './game/meta';
 import { initUFO, bankCargo } from './world/player';
-import { PROJ, updateLift } from './world/combat';
+import { PROJ, updateLift, abductEnt, raiseAlert } from './world/combat';
 import { updateEnts } from './world/entity';
 import { deployUnit } from './world/invasion';
 import { refreshSites, armyPower } from './game/campaign';
-import { enterTitle, updateTitle, enterBriefing, finishBriefing } from './scenes/title';
+import { enterTitle, updateTitle } from './scenes/title';
 import { startMission, updateMission, endNight, missionHooks } from './scenes/mission';
 import { enterMothership, updateMothership, buildUnits, buyUpgrade } from './scenes/mothership';
-import { enterGlobe, leaveGlobe, updateGlobe, globeHooks, globeSelection, hideLabels } from './scenes/globe';
+import { enterGlobe, leaveGlobe, updateGlobe, globeHooks, globeSelection, hideLabels, refreshGlobe } from './scenes/globe';
 import { startInvasion, updateInvasion, updateVictory, endInvasion, invasionScene } from './scenes/invasion';
 
 // ---------------- screen transitions (iris, docs/ART_STYLE.md §7) ----------------
@@ -59,13 +61,14 @@ function saucerPoint(): { x: number; y: number } | undefined {
 // ---------------- flow between scenes ----------------
 function goGlobe() {
   TUT.stop(); if (!G.save.tutorial.done && G.save.tutorial.ms >= 1) G.save.tutorial.ms = 3;
-  refreshSites(); writeSave(G.save);
+  refreshSites(); rollDaily(); writeSave(G.save);
   G.mode = 'globe'; G.paused = false; G.modeTime = 0; UI.show(null); UI.hud(false); SFX.setMusic('calm'); platform.gameplayStop();
   enterGlobe();
   if (!G.save.tutorial.done) TUT.start('Earth', [
     { text: 'This is Earth! <b>Drag</b> to spin it. Glowing rings are abduction sites. <b>Tap one</b> (or pick it from the list).', check: () => globeSelection()?.type === 'site' },
     { text: 'Press <b>Launch night</b> to start your first real mission. This time Earth\'s army will fight back!', highlight: 'btn-launch-site', check: () => G.mode === 'mission' },
-  ], () => { G.save.tutorial.done = true; writeSave(G.save); }, () => { G.save.tutorial.done = true; writeSave(G.save); });
+  ], () => { G.save.tutorial.done = true; rollDaily(); writeSave(G.save); refreshGlobe(); }, () => { G.save.tutorial.done = true; rollDaily(); writeSave(G.save); refreshGlobe(); });
+  else maybeShowDailyDrop(() => { writeSave(G.save); refreshGlobe(); });
 }
 function leaveGlobeIfOpen() {
   if (TUT.active && TUT.label === 'Earth') { G.save.tutorial.done = true; TUT.stop(); }   // leaving the globe completes its tutorial
@@ -86,6 +89,7 @@ missionHooks.summary = (title, html, note, tutorial) => {
   writeSave(G.save);
   $('sum-eyebrow').textContent = tutorial ? 'Training report' : `Mission report · ${G.night?.regionName ?? ''}`;
   $('sum-title').textContent = title; $('sum-body').innerHTML = html; $('sum-note').textContent = note;
+  $('sum-goals').innerHTML = tutorial ? '' : nextGoalsHTML();
   $('btn-sum-ms').hidden = tutorial; $('btn-sum-next').textContent = tutorial ? 'To the mothership' : 'Back to Earth';
   UI.iris(() => { UI.hud(false); UI.hideComm(); UI.show('scr-summary'); }, saucerPoint());
 };
@@ -94,7 +98,8 @@ invasionScene.irisFrom = saucerPoint;
 /** Leave a report screen: the midgame ad (a no-op until ads are enabled) plays while the iris is closed. */
 function betweenMissions(next: () => void, from?: { x: number; y: number }) { return UI.iris(async () => { await platform.midgameAd(); next(); }, from); }
 
-function startNewGame(from?: { x: number; y: number }) { eraseSave(); G.save = newSave(); writeSave(G.save); UI.iris(enterBriefing, from); }
+/** A new game goes straight into the training night: Zix gives the orders over the radio (no text screen first). */
+function startNewGame(from?: { x: number; y: number }) { eraseSave(); G.save = newSave(); writeSave(G.save); UI.iris(() => startMission(null, true), from); }
 function continueGame(from?: { x: number; y: number }) {
   const s = loadSave(); if (s) G.save = s;
   UI.iris(() => {
@@ -120,10 +125,6 @@ function wireUI() {
   click('btn-confirm-yes', e => { $('confirm-new').hidden = true; startNewGame(at(e)); });
   click('btn-confirm-no', () => { $('confirm-new').hidden = true; });
   click('btn-continue', e => { SFX.play('ui'); continueGame(at(e)); });
-  click('btn-howto', () => { SFX.play('ui'); UI.show('scr-howto'); });
-  click('btn-howto-back', () => { SFX.play('ui'); UI.show('scr-title'); });
-  click('btn-brief-skip', () => finishBriefing());
-  click('btn-accept', e => { SFX.play('ui'); finishBriefing(); UI.iris(() => startMission(null, true), at(e)); });
   click('btn-sum-next', e => { SFX.play('ui'); if (G.save.tutorial.ms < 3 && !G.save.tutorial.done) UI.iris(enterMothership, at(e)); else betweenMissions(goGlobe, at(e)); });
   click('btn-sum-ms', e => { SFX.play('ui'); betweenMissions(enterMothership, at(e)); });
   click('ms-army', e => { const b = (e.target as HTMLElement).closest('[data-build]') as HTMLButtonElement; if (b && !b.disabled) buildUnits(b.dataset.build as UnitKey, +b.dataset.n); });
@@ -131,11 +132,13 @@ function wireUI() {
   click('btn-ms-earth', e => { SFX.play('ui'); UI.iris(goGlobe, at(e)); });
   click('btn-ms-menu', e => { SFX.play('ui'); writeSave(G.save); UI.iris(() => { TUT.stop(); enterTitle(); }, at(e)); });
   click('btn-g-ms', () => globeHooks.mothership());
+  click('btn-cat', () => { SFX.play('ui'); showCatalogue(); });
+  click('btn-ach', () => { SFX.play('ui'); showAchievements(); });
   click('btn-g-menu', () => setPaused(true));
   click('pause-btn', () => setPaused(true));
   click('btn-resume', () => setPaused(false));
   click('btn-sound', () => { SFX.setMuted(!SFX.muted); $('btn-sound').textContent = `Sound: ${SFX.muted ? 'off' : 'on'}`; });
-  click('btn-quality', () => { setQuality(QUALITY === 'high' ? 'low' : 'high'); $('btn-quality').textContent = `Graphics: ${QUALITY}`; });
+  click('btn-quality', () => { setQuality(QUALITY === 'high' ? 'low' : 'high', true); $('btn-quality').textContent = `Graphics: ${QUALITY}`; });
   click('btn-quit', e => {
     G.paused = false; UI.show(null);
     if (G.mode === 'mission') endNight('abort');
@@ -153,13 +156,26 @@ function wireUI() {
   platform.onAdPause = paused => { SFX.adPaused = paused; SFX.refreshVolume(); };
 }
 
+// ---------------- automatic graphics quality ----------------
+// If the game runs below ~28 fps for two 6-second windows in play, drop to low graphics once (unless the player
+// picked a setting themselves in the pause menu).
+const FPS = { t: 0, frames: 0, slow: 0, done: false };
+function watchFps(dt: number) {
+  if (FPS.done || prefs.qualityUser || QUALITY === 'low' || G.paused || UI.irisBusy || !['mission', 'invasion'].includes(G.mode)) return;
+  FPS.t += dt; FPS.frames++;
+  if (FPS.t < 6) return;
+  const fps = FPS.frames / FPS.t; FPS.t = 0; FPS.frames = 0;
+  FPS.slow = fps < 28 ? FPS.slow + 1 : 0;
+  if (FPS.slow >= 2) { FPS.done = true; setQuality('low'); UI.toast('Graphics set to low for smoother play (change it in the pause menu)', '', 3.5); }
+}
+
 // ---------------- main loop ----------------
 const clock = new THREE.Clock();
 let errShown = false;
 function step(dt: number) {
   G.time += dt; G.modeTime += dt;
   switch (G.mode) {
-    case 'title': case 'briefing': updateTitle(dt); break;
+    case 'title': updateTitle(dt); break;
     case 'mission': updateMission(dt); break;
     case 'invasion': updateInvasion(dt); break;
     case 'victory': updateVictory(dt); break;
@@ -175,7 +191,8 @@ function step(dt: number) {
   FX.update(dt);
 }
 function tick() {
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
+  watchFps(raw);
   if (document.body.dataset.mode !== G.mode) document.body.dataset.mode = G.mode;
   try {
     if (!G.paused) step(dt);
@@ -192,8 +209,12 @@ async function boot(data?: { save?: any }) {
   (window as any).__aiBooted = true;
   platform.loadingStart();
   await platform.init(); platform.loadingStart();
-  INPUT.init(); FX.init(); BEAM.init(); portrait.init(); initUFO(); setQuality(QUALITY); wireUI();
+  INPUT.init(); FX.init(); BEAM.init(); portrait.init(); initUFO(); setQuality(QUALITY); wireUI(); initMetaUI();
   const s = data?.save || loadSave(); if (s) G.save = s;
+  // CrazyGames: new players land in gameplay immediately. No save = straight into the training night.
+  const firstVisit = !s;
+  if (firstVisit) { G.save = newSave(); writeSave(G.save); }
+  else { const n = META.notify; META.notify = () => {}; checkAchievements(); META.notify = n; }   // older saves: award earned ones quietly
   // Loading screen (§7): the sticker meter fills with the model downloads, then the title scene is built and its
   // shaders compiled; the screen hides once that and Lilita One (or a 2.5 s timeout) are ready.
   const fill = $('load-fill');
@@ -202,19 +223,24 @@ async function boot(data?: { save?: any }) {
     else $('loading').textContent = `Loading Earth… ${Math.round(f * 100)}%`;   // older markup without the meter
   };
   progress(0.06);
-  await preload(allModelIds(), (d, t) => progress(0.06 + 0.8 * d / t));
-  enterTitle(); progress(0.9);
+  await preload(FIRST_NIGHT, (d, t) => progress(0.06 + 0.8 * d / t));
+  if (firstVisit) startMission(null, true); else enterTitle();
+  progress(0.9);
   const font = document.fonts?.load ? document.fonts.load('40px "Lilita One"').then(() => undefined, () => undefined) : Promise.resolve();
   await Promise.all([Promise.race([font, wait(2500)]), prewarmScene(10000)]);
   progress(1);
   renderer.setAnimationLoop(tick);
   await Promise.race([new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r()))), wait(400)]);   // first frames behind the curtain
   $('loading').hidden = true; $('fail').hidden = true; platform.loadingStop();
+  if (firstVisit) { platform.gameplayStop(); platform.gameplayStart(); }   // report the order CrazyGames expects: loading done, then play
+  // The rest of the models download in the background; every screen change waits for them behind the iris.
+  const all = preload(allModelIds());
+  UI.beforeSwap = () => all;
 }
 
 // Handy for testing in the browser console, e.g. __AI.give(100)
 (window as any).__AI = {
-  G, startMission, startInvasion, enterMothership, goGlobe, endNight, deployUnit, setQuality, INPUT, PROJ, renderer, camera, TUT, bankCargo,
+  USED, abductEnt, raiseAlert, enterTitle, G, startMission, startInvasion, enterMothership, goGlobe, endNight, deployUnit, setQuality, INPUT, PROJ, renderer, camera, TUT, bankCargo,
   give(n = 50) { for (const r of ['humans', 'biomass', 'metal'] as const) G.save.res[r] += n; writeSave(G.save); },
   simulate(sec: number, dt = 1 / 30) { for (let t = 0; t < sec; t += dt) { step(dt); INPUT.endFrame(); } },
   updateEnts: (dt: number) => updateEnts(dt, updateLift),

@@ -262,12 +262,22 @@ export async function preload(ids: string[], onProgress?: (done: number, total: 
   await Promise.all(Array.from({ length: 6 }, worker));
 }
 export const hasModel = (id: string) => cache.has(id);
+/**
+ * What the title scene and the training night use (measured): loaded before play starts. Everything else loads in
+ * the background while the player is in training, and every screen transition waits for it (UI.beforeSwap).
+ */
+export const FIRST_NIGHT = ['building_a', 'building_c', 'building_d', 'hangar', 'satellite_dish', 'tree_fat', 'tree_oak', 'tree_autumn', 'tree_pine',
+  'flower_red', 'rock_small', 'bush', 'stump', 'mini_male_a', 'mini_male_b', 'mini_male_c', 'mini_male_d', 'mini_male_e', 'mini_male_f',
+  'mini_female_a', 'mini_female_b', 'mini_female_c', 'mini_female_d', 'mini_female_e', 'mini_female_f', 'fox', 'deer', 'shiba', 'cat',
+  'watermelon', 'pumpkin', 'van', 'suv', 'truck', 'taxi', 'sedan', 'tractor', 'delivery_van', 'hatchback_sports'];
 export const allModelIds = () => Object.keys(MODELS);
 
 export interface ModelInstance { root: THREE.Group; mixer: THREE.AnimationMixer | null; family: Family; clips: THREE.AnimationClip[]; action: THREE.AnimationAction | null; anim: string }
 /** A fresh copy of a model (bones are cloned too, so every person animates on their own). Copies share the template's toon + ink materials. */
+/** Every model id a scene asked for (used to work out what the first night needs). */
+export const USED = new Set<string>();
 export function instance(id: string): ModelInstance {
-  const t = cache.get(id);
+  USED.add(id); const t = cache.get(id);
   if (!t) { const g = new THREE.Group(); g.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1.8, 0.6).translate(0, 0.9, 0), toonMaterial({ color: 0xff00ff }))); inkify(g); return { root: g, mixer: null, family: 'static', clips: [], action: null, anim: '' }; }
   const root = (t.skinned ? skeletonClone(t.root) : t.root.clone(true)) as THREE.Group;
   return { root, mixer: t.clips.length ? new THREE.AnimationMixer(root) : null, family: t.def.family || 'static', clips: t.clips, action: null, anim: '' };
@@ -293,7 +303,7 @@ export function play(inst: ModelInstance, sem: string, o: { fade?: number; once?
 export class StaticBatch {
   private items = new Map<string, THREE.Matrix4[]>();
   add(id: string, x: number, y: number, z: number, ry = 0, s = 1) {
-    if (!cache.has(id)) return;
+    USED.add(id); if (!cache.has(id)) return;
     const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ry), new THREE.Vector3(s, s, s));
     (this.items.get(id) || this.items.set(id, []).get(id)).push(m);
   }

@@ -17,7 +17,7 @@ export const numHTML = (v: string | number, n = String(v).length) => `<span clas
 export function replayClass(el: Element, cls: string) { el.classList.remove(cls); void (el as HTMLElement).offsetWidth; el.classList.add(cls); }
 const wait = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
-const SCREENS = ['scr-title', 'scr-howto', 'scr-briefing', 'scr-summary', 'scr-mothership', 'scr-pause', 'scr-end'];
+const SCREENS = ['scr-title', 'scr-summary', 'scr-mothership', 'scr-pause', 'scr-end'];
 const cache: Record<string, string> = {};
 
 // ---- Commander Zix typing state: the full line is laid out at once (so the balloon never resizes) and the
@@ -56,6 +56,8 @@ export const UI = {
    * timeout). Kept as a hook so this module does not depend on the renderer.
    */
   prewarm: (): Promise<void> => Promise.resolve(),
+  /** Runs while the iris is closed, before the swap (main.ts: wait for the background model download). */
+  beforeSwap: (): Promise<void> => Promise.resolve(),
   show(id: string | null) { for (const s of SCREENS) $(s).hidden = s !== id; },
   hud(on: boolean) {
     if (on) UI.clearGlobe();   // §7: the globe UI must never leak into a mission
@@ -101,6 +103,11 @@ export const UI = {
     if (UI.commT > 0) { UI.commT -= dt; if (UI.commT <= 0) UI.hideComm(); }
   },
   hint(html: string) { UI.set('hint', 'html', html); },
+  /** A huge comic word across the screen (MEGA BEAM!, alert levels). `html` may hold a <small> second line. */
+  banner(html: string, cls = '', dur = 2.2) {
+    const el = $('banner'); if (!el) return;
+    el.className = cls; el.innerHTML = html; el.style.animationDuration = `${dur}s`; replayClass(el, 'on');
+  },
 
   /**
    * Resource chip gain (§7): pop the chip (scale 1.3 → 1 with a white flash) and float a "+N" tag above it.
@@ -130,12 +137,12 @@ export const UI = {
     const run = async () => {
       const el = $('iris');
       try {
-        if (!el) { try { await swap(); } catch (err) { console.error(err); } await UI.prewarm(); return; }
+        if (!el) { try { await UI.beforeSwap(); await swap(); } catch (err) { console.error(err); } await UI.prewarm(); return; }
         if (from && isFinite(from.x) && isFinite(from.y)) { el.style.setProperty('--x', `${Math.round(from.x)}px`); el.style.setProperty('--y', `${Math.round(from.y)}px`); }
         else { el.style.removeProperty('--x'); el.style.removeProperty('--y'); }
         UI.irisClosing = true; el.classList.add('on');
         await wait(reducedMotion ? 200 : 380 + 80);   // close, then hold
-        try { await swap(); } catch (err) { console.error(err); }
+        try { await UI.beforeSwap(); await swap(); } catch (err) { console.error(err); }
         UI.irisClosing = false;
         await UI.prewarm();
         el.classList.remove('on');

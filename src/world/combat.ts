@@ -11,6 +11,8 @@ import { damageEnt, say } from './entity';
 import type { Entity } from './entity';
 import { damagePlayer, saucerBurp } from './player';
 import { SAY, HUMAN_KINDS, ANIMAL_KINDS } from './lines';
+import { onAbduct, onCombo, onFullHold } from '../game/meta';
+import { startMegaBeam } from './player';
 
 export interface Proj { pos: Vec3; vel: Vec3; team: string; dmg: number; splash: number; life: number; color: THREE.Color; width: number; trail: number; homing: any; turn: number; kind: string; hp: number; src: any; hitAir: boolean; hitGround: boolean; puffT: number }
 /**
@@ -91,7 +93,11 @@ export function raiseAlert(n: number) {
   const after = alertLevel();
   if (after > before) {
     SFX.play('alarm');
-    UI.toast(`Alert ${after}: ${['', 'Police are on the way', 'The army is coming', 'Tanks rolling in', 'Missile trucks deployed', 'Maximum alert!'][after]}`, 'warn', 3);
+    // Loud and readable (Phase 1): a big comic banner saying what is coming, a red edge flash and the siren.
+    const what = ['', 'Police are on the way!', 'The army is coming!', 'Tanks rolling in!', 'Missile trucks deployed!', 'Everything they have!'][after];
+    UI.banner(`ALERT ${after}<small>${what}</small>`, 'alert', 2.4);
+    document.body.classList.remove('alarm'); void document.body.offsetWidth; document.body.classList.add('alarm');
+    setTimeout(() => document.body.classList.remove('alarm'), 2100);
     if (after === 1 && G.save.totals.missions < 2) UI.comm('The locals called their "police". Zap them with the stun ray, then beam them up. Two birds, one saucer.');
     if (after === 3 && G.save.up.beam < 2) UI.comm('Tanks! Disable them with the ray. Our beam needs <b>level 3</b> to lift something that heavy.');
   }
@@ -149,5 +155,27 @@ export function abductEnt(e: Entity) {
   G.save.totals.abducted++;
   if (e.artifact) G.save.artifacts[e.artifact] = (G.save.artifacts[e.artifact] || 0) + 1;
   if (G.mode === 'mission') raiseAlert(HUMAN_KINDS.has(e.kind) ? (e.team === 'earth' ? 7 : 5) : cat === 'animals' ? 2.5 : cat === 'artifacts' ? 0 : 5);
+  if (G.mode === 'mission') comboHit(r ? L[r] : 1, r);
+  if (G.mode === 'mission' && !G.night.fullHold && G.cargo.mass >= P.stats.cargoCap - 0.29) { G.night.fullHold = true; onFullHold(); }
+  onAbduct(e.kind);
   e.onAbduct?.(e);
+}
+
+// ---------- combos: abductions less than COMBO_GAP seconds apart chain up ----------
+export const COMBO_GAP = 2.6, MEGA_AT = 8;
+/**
+ * Each abduction within 2.6 s of the last one raises the combo. From ×3 every arrival brings a bonus
+ * (+25 % of its value per step, up to +100 %), without taking cargo space. Reaching ×8 powers up the MEGA BEAM.
+ */
+function comboHit(value: number, r: string | undefined) {
+  const N = G.night; if (!N || N.tutorial) return;
+  N.combo = G.time - (N.comboT ?? -99) <= COMBO_GAP ? (N.combo || 0) + 1 : 1;
+  N.comboT = G.time;
+  if (N.combo >= 2) onCombo(N.combo);
+  if (N.combo >= 3 && r) {
+    const bonus = Math.max(1, Math.ceil(value * Math.min(N.combo - 2, 4) * 0.25));
+    (G.cargo as any)[r] += bonus;
+    FT.spawn(G.player.pos.clone().setY(G.player.pos.y + 2.5), `COMBO ×${N.combo}  +${bonus}`, 'combo', 1.1, 3);
+  }
+  if (N.combo === MEGA_AT) startMegaBeam();
 }

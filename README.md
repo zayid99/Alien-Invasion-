@@ -1,4 +1,4 @@
-# Alien Invasion
+# Alien Invasion: Conquer Earth
 
 A 3D browser game. You are **Commander Zix**, a gray alien. Abduct humans, cows and cars across the real world, build an army on your mothership, and conquer Earth's great cities one by one.
 

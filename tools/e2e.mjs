@@ -1,4 +1,5 @@
-// Smoke test: serves dist/, plays the tutorial in headless Chromium, fails on console errors.
+// Smoke test: serves dist/, checks a new player lands straight in the training night, plays the tutorial,
+// goes on to the mothership, and fails on console errors.
 // Needs: npm install --save-dev playwright && npx playwright install chromium   (then: npm run build && npm test)
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -16,7 +17,9 @@ try {
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('http://localhost:4174/');
   await page.waitForFunction(() => document.getElementById('loading').hidden, null, { timeout: 120000 });
-  await page.click('#btn-new'); await page.click('#btn-accept'); await sleep(1000);
+  const start = await page.evaluate(() => ({ mode: window.__AI.G.mode, tut: window.__AI.TUT.active }));
+  if (start.mode !== 'mission' || !start.tut) errors.push(`a new player should land in the training night, got "${start.mode}"`);
+  await sleep(500);
   const ok = await page.evaluate(() => {
     const A = window.__AI, G = A.G, hold = (k, s) => { A.INPUT.keys.add(k); A.simulate(s); A.INPUT.keys.delete(k); };
     hold('KeyW', 2);
@@ -30,6 +33,11 @@ try {
   await sleep(4500);
   const mode = await page.evaluate(() => window.__AI.G.mode);
   if (mode !== 'summary') errors.push(`expected the training report, got "${mode}"`);
+  else {
+    await page.click('#btn-sum-next'); await sleep(6000);
+    const next = await page.evaluate(() => window.__AI.G.mode);
+    if (next !== 'mothership') errors.push(`expected the mothership after training, got "${next}"`);
+  }
 } catch (e) { errors.push(String(e)); }
 await browser?.close(); server.kill();
 if (errors.length) { console.error('FAILED:\n' + errors.join('\n')); process.exit(1); }

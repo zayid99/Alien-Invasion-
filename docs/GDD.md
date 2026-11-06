@@ -1,4 +1,4 @@
-# Alien Invasion: Game Design Document
+# Alien Invasion: Conquer Earth — Game Design Document
 
 Status: living document. Version 0.1 (first build). Owner: Zayid.
 

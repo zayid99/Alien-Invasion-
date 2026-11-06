@@ -8,6 +8,7 @@ import { makeUFO } from '../gfx/models';
 import { FX, FT, BEAM, FXC, shellMaterial } from '../gfx/fx';
 import { PAL } from '../gfx/palette';
 import { UI } from '../ui/dom';
+import { onMegaBeam } from '../game/meta';
 import { CFG, STAT, RES } from '../data/balance';
 import { V3, _v1, _v2, chance, clamp, damp, hdist, rand, reducedMotion } from '../core/util';
 import { damageEnt, say, jellyHit } from './entity';
@@ -53,8 +54,18 @@ export function makePlayer(x: number, z: number) {
     dead: false, hurtT: 9, rayCool: 0, sending: 0, pulse: 0, hitFlash: 0, liftingMass: 0, hh: 0, lowWarned: false, moved: 0 };
   return G.player;
 }
+/** MEGA BEAM (a ×8 combo): for 8 s the beam is 60 % wider, lifts 80 % faster and carries 4 t more. */
+export const MEGA_TIME = 8;
+export function startMegaBeam() {
+  const P = G.player; if (!P || P.dead) return;
+  if (!(P.mega > 0)) { P.baseStats = P.stats; P.stats = { ...P.stats, beamRadius: P.stats.beamRadius * 1.6, liftSpeed: P.stats.liftSpeed * 1.8, maxLift: P.stats.maxLift + 4 }; }
+  P.mega = MEGA_TIME; P.pulse = 1; G.shake = Math.max(G.shake, 0.5);
+  UI.banner('MEGA BEAM!', 'mega', 2.2); SFX.play('fanfare'); onMegaBeam();
+}
+function endMegaBeam(P: any) { if (P.baseStats) P.stats = P.baseStats; P.baseStats = null; P.mega = 0; }
 export function updatePlayer(dt: number) {
   const P = G.player; if (!P || P.dead) return;
+  if (P.mega > 0) { P.mega -= dt; if (P.mega <= 0) endMegaBeam(P); }
   const S = P.stats, m = INPUT.move(), yaw = G.camYaw;
   const wx = Math.cos(yaw) * m.x - Math.sin(yaw) * m.z, wz = -Math.sin(yaw) * m.x - Math.cos(yaw) * m.z;
   let speed = S.speed * (P.beamOn ? 0.55 : 1);
@@ -200,6 +211,7 @@ export function rayHit(e: Entity, dmg: number) {
 }
 export function damagePlayer(dmg: number) {
   const P = G.player; if (!P || P.dead || G.mode === 'victory' || P.invulnerable) return;
+  if (G.night && G.mode === 'mission') G.night.hurt = true;
   P.shield -= dmg; P.hurtT = 0; P.hitFlash = 1; P.shieldT = 0;   // shield flash + wobble (animateSaucer)
   // §6 damage feedback: the #hurt overlay (C6, UI lane). Guarded: older dom.ts builds have no UI.hurt.
   (UI as { hurt?: (level: number) => void }).hurt?.(clamp(0.45 + dmg / P.maxShield * 4, 0.45, 1));   // method call keeps `this`

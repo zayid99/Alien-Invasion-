@@ -1,6 +1,6 @@
 # Credits
 
-Alien Invasion is made by Zayid. Game design and code were written with help from Claude (Anthropic).
+Alien Invasion: Conquer Earth is made by Zayid. Game design and code were written with help from Claude (Anthropic).
 
 ## 3D models, sounds and music
 

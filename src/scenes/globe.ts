@@ -17,6 +17,7 @@ import { clearWorld } from '../world/maps/common';
 import { regionState, cityState, regionUnlocked, cityLevel, earthPower, armyPower, verdict, occupiedCities } from '../game/campaign';
 import { SFX } from '../core/audio';
 import { $, UI, ICON } from '../ui/dom';
+import { dailyCardHTML } from '../ui/meta';
 import { arcDeg, clamp, hashString, latLonToVec3, mulberry32 } from '../core/util';
 import { toonMaterial, inkify, setRimColor } from '../gfx/toon';
 import { PAL, SKY } from '../gfx/palette';
@@ -482,6 +483,7 @@ export function renderPanel() {
   if (!sel) {
     const targets = CITIES.filter(c => regionUnlocked(regionById(c.region)) && !cityState(c.id).occupied).sort((a, b) => cityLevel(a) - cityLevel(b)).slice(0, 4);
     h = `<div><div class="eyebrow">Day ${s.day}</div><h3>Choose a target</h3><p class="sub">Slime rings with a saucer are abduction sites. Red pins are cities you can invade.</p></div>
+      ${dailyCardHTML()}
       <div class="g-list">${s.sites.map(siteRow).join('') || '<p class="sub">No sites right now.</p>'}</div>
       <h3 class="reach">Cities in reach</h3><div class="g-list">${targets.map(cityRow).join('')}</div>`;
   } else if (sel.type === 'site') {

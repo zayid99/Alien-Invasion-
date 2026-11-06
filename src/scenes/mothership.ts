@@ -1,6 +1,8 @@
 // The mothership: build army units and upgrade the saucer, with Earth turning below.
 // Backdrop per docs/ART_STYLE.md §4/§5/§8: banded space sky, sparkle stars, the toon Earth (same painted map,
 // toon material and stepped atmosphere as the globe), a ringed cartoon planet, mothership light rig.
+import { checkAchievements } from '../game/meta';
+import { metaButtonLabels } from '../ui/meta';
 import * as THREE from 'three';
 import { G, track } from '../game/state';
 import { camera, scene, LIGHT, makeStars, fresnelMaterial, gradientSky } from '../core/engine';
@@ -78,6 +80,7 @@ function nextTarget() {
 export function renderMothership() {
   const s = G.save, res = s.res;
   $('ms-sub').textContent = `High orbit · Day ${s.day} · ${s.totals.citiesTaken} cities conquered`;
+  const L = metaButtonLabels(); $('btn-cat').textContent = L.cat; $('btn-ach').textContent = L.ach;
   renderWallet('ms-wallet');
   $('ms-army').innerHTML = UNIT_KEYS.map(k => {
     const T = UNIT_TYPES[k];
@@ -109,6 +112,6 @@ export function buildUnits(k: UnitKey, n: number) {
 export function buyUpgrade(k: UpgradeKey) {
   const U = UPGRADES[k], l = G.save.up[k]; if (l >= 4) return;
   const c = U.costs[l]; if (!canAfford(G.save.res, c)) { SFX.play('error'); return; }
-  payCost(G.save.res, c); G.save.up[k]++; SFX.play('buy'); writeSave(G.save); UI.toast(`${U.name} upgraded`, 'good', 1.6); renderMothership();
+  payCost(G.save.res, c); G.save.up[k]++; SFX.play('buy'); checkAchievements(); writeSave(G.save); UI.toast(`${U.name} upgraded`, 'good', 1.6); renderMothership();
   if (G.save.up[k] === 4) platform.happytime();
 }

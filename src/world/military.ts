@@ -1,7 +1,7 @@
 // Earth's response during abduction nights: police, army, tanks, missile trucks.
 import * as THREE from 'three';
 import { G } from '../game/state';
-import { instance } from '../core/assets';
+import { instance , hasModel } from '../core/assets';
 import { Kit, box, cyl } from '../gfx/kit';
 import { FX } from '../gfx/fx';
 import { SFX } from '../core/audio';
@@ -85,7 +85,7 @@ export function aimNode(e: Entity, angle: number) {
   t.quaternion.copy(e.turretBase).premultiply(new THREE.Quaternion().setFromAxisAngle(e.turretAxis, angle));
 }
 export function spawnTank(x: number, z: number, parked = false, heavy = false) {
-  const m = instance(heavy ? 'tank_heavy' : 'tank'); m.root.position.set(x, 0, z);
+  const m = instance(heavy ? 'tank_heavy' : hasModel('b_tank') ? 'b_tank' : 'tank'); m.root.position.set(x, 0, z);
   const e = makeEnt('tank', m.root, { model: m, r: 3, hh: 1.3, brain: brainTank, mini: '#ff5a4a', miniR: 3, shadow: 6.5, team: 'earth', hp: 60 + 12 * lvl() });
   e.turretNode = findNode(m.root, 'Tank_Turret'); e.turretAngle = 0;
   e.state = parked ? 'parked' : 'hunt'; e.onDeath = wreckVehicle; e.cruise = 7; e.zap = true;

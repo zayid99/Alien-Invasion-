@@ -14,7 +14,7 @@ import { Kit } from '../gfx/kit';
 
 type Family = 'mini' | 'quat' | 'animal' | 'robot' | 'tank' | 'static';
 /** ink:false = never outlined (tiny props, §4 "ink:false MODELS flag"). */
-interface ModelDef { file: string; height?: number; length?: number; size?: number; scale?: number; rotY?: number; family?: Family; ink?: boolean }
+interface ModelDef { file: string; height?: number; length?: number; size?: number; scale?: number; rotY?: number; family?: Family; ink?: boolean; noStar?: boolean }
 
 // Mini characters are drawn 10% bigger than before (§5); their hitboxes live in the entity code and are unchanged.
 const mini = (f: string): ModelDef => ({ file: f, height: 1.9 * 1.1, family: 'mini' });
@@ -30,6 +30,9 @@ export const MODELS: Record<string, ModelDef> = {
   police_car: { file: 'police_car', length: 4.8 }, van: { file: 'van', length: 4.7 }, ambulance: { file: 'ambulance', length: 5.4 },
   firetruck: { file: 'firetruck', length: 6.4 }, delivery_van: { file: 'delivery_van', length: 5.4 }, truck: { file: 'truck', length: 4.9 },
   garbage_truck: { file: 'garbage_truck', length: 6.2 }, tractor: { file: 'tractor', length: 3.8 }, hatchback_sports: { file: 'hatchback_sports', length: 4.4 },
+  // Blender remakes (tools/blender/build_models.py --game): rounder toy shapes in the Moonlit Toybox palette
+  b_tank: { file: 'b_tank', length: 6.6, family: 'tank', noStar: true }, b_cow: { file: 'b_cow', length: 3.0 }, b_sheep: { file: 'b_sheep', length: 2.1 },
+  b_pig: { file: 'b_pig', length: 2.3 }, b_chicken: { file: 'b_chicken', length: 1.0 }, b_alien: { file: 'b_alien', height: 2.5 }, b_saucer: { file: 'b_saucer', size: 4.4 },
   tank: { file: 'tank', length: 6.4, family: 'tank' }, tank_heavy: { file: 'tank_heavy', length: 7.2, family: 'tank' },
   // buildings
   building_a: { file: 'building_a', scale: 8 }, building_b: { file: 'building_b', scale: 8 }, building_c: { file: 'building_c', scale: 8 },
@@ -170,13 +173,13 @@ function tintAtlas(tint: string, visor?: string) {
 }
 
 const _hsl = { h: 0, s: 0, l: 0 };
-type AnyMat = THREE.Material & { color?: THREE.Color; map?: THREE.Texture | null; emissive?: THREE.Color; emissiveMap?: THREE.Texture | null; vertexColors?: boolean };
+type AnyMat = THREE.Material & { color?: THREE.Color; map?: THREE.Texture | null; emissive?: THREE.Color; emissiveMap?: THREE.Texture | null; emissiveIntensity?: number; vertexColors?: boolean };
 /** Convert one glTF material (Standard or unlit Basic) to a toon material in the shared 'toon-std' program. */
 function toToon(m: AnyMat, id: string, part: string | null): THREE.MeshToonMaterial {
   const t = new THREE.MeshToonMaterial({
     map: m.map ?? null, color: m.color ? m.color.clone() : 0xffffff, vertexColors: !!m.vertexColors,
     transparent: m.transparent, opacity: m.opacity, side: m.side, alphaTest: m.alphaTest,
-    emissive: m.emissive ? m.emissive.clone() : 0x000000, emissiveMap: m.emissiveMap ?? null, gradientMap: TOON_RAMP,
+    emissive: m.emissive ? m.emissive.clone() : 0x000000, emissiveMap: m.emissiveMap ?? null, emissiveIntensity: m.emissiveIntensity ?? 1, gradientMap: TOON_RAMP,
   });
   t.name = m.name;
   const recolor = (part && RECOLOR[`${id}:${part}/${m.name}`]) || RECOLOR[`${id}:${m.name}`];
@@ -240,6 +243,7 @@ function mergeParts(root: THREE.Object3D) {
   const groups = new Map<string, THREE.Mesh[]>();
   root.traverse((o: any) => {
     if (!o.isMesh || Array.isArray(o.material) || o.material.map || o.material.transparent || o.userData.noInk || o.children.length || !o.parent) return;
+    const em = o.material.emissive; if (em && em.r + em.g + em.b > 0.01) return;   // glowing parts keep their own material
     let key = o.parent.uuid + '|static';
     if (o.isSkinnedMesh) {
       o.updateMatrix(); if (!o.matrix.equals(new THREE.Matrix4())) return;   // skinned geometry stays in bind space
@@ -298,7 +302,7 @@ async function loadOne(id: string) {
   if (def.height) s = def.height / size.y; else if (def.length) s = def.length / Math.max(size.x, size.z); else if (def.size) s = def.size / Math.max(size.x, size.y, size.z);
   const inner = g.scene; inner.scale.multiplyScalar(s); inner.position.set(-c.x * s, -box.min.y * s, -c.z * s); inner.rotation.y = def.rotY ?? 0;
   const root = new THREE.Group(); root.add(inner); root.updateMatrixWorld(true);
-  if (def.family === 'tank') {
+  if (def.family === 'tank' && !def.noStar) {
     // Cream star on top of the turret, parented to the turret node so it turns with it.
     const turret = root.getObjectByName('Tank_Turret');
     const tb = turret ? new THREE.Box3().setFromObject(turret) : null;
@@ -326,7 +330,7 @@ export const hasModel = (id: string) => cache.has(id);
 export const FIRST_NIGHT = ['building_a', 'building_c', 'building_d', 'hangar', 'satellite_dish', 'tree_fat', 'tree_oak', 'tree_autumn', 'tree_pine',
   'flower_red', 'rock_small', 'bush', 'stump', 'mini_male_a', 'mini_male_b', 'mini_male_c', 'mini_male_d', 'mini_male_e', 'mini_male_f',
   'mini_female_a', 'mini_female_b', 'mini_female_c', 'mini_female_d', 'mini_female_e', 'mini_female_f', 'fox', 'deer', 'shiba', 'cat',
-  'watermelon', 'pumpkin', 'van', 'suv', 'truck', 'taxi', 'sedan', 'tractor', 'delivery_van', 'hatchback_sports'];
+  'watermelon', 'pumpkin', 'van', 'suv', 'truck', 'taxi', 'sedan', 'tractor', 'delivery_van', 'hatchback_sports', 'b_cow', 'b_sheep', 'b_pig', 'b_chicken'];
 export const allModelIds = () => Object.keys(MODELS);
 
 export interface ModelInstance { root: THREE.Group; mixer: THREE.AnimationMixer | null; family: Family; clips: THREE.AnimationClip[]; action: THREE.AnimationAction | null; anim: string }

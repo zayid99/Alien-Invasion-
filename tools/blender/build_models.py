@@ -114,14 +114,14 @@ def arc_tube(radius, thick, a0, a1, loc, m, rot=(0, 0, 0), steps=10):
     o.data.materials.append(m)
     return o
 
-BUDGET = {'saucer': 7000, 'alien': 2500, 'cow': 2500, 'house': 2500, 'tank': 3500, 'civilian': 2500}
+BUDGET = {'saucer': 7000, 'alien': 2500, 'cow': 2500, 'house': 2500, 'tank': 3500, 'civilian': 2500, 'sheep': 2000, 'pig': 2000, 'chicken': 1200}
 def tri_count():
     dg = bpy.context.evaluated_depsgraph_get(); t = 0
     for o in bpy.context.scene.objects:
         if o.type in ('MESH', 'CURVE'):
             me = o.evaluated_get(dg).to_mesh(); t += sum(len(p.vertices) - 2 for p in me.polygons); o.evaluated_get(dg).to_mesh_clear()
     return t
-def export(name):
+def export(name, pivot=None):
     hero = tri_count()
     # bake every object to a plain mesh (modifiers + curves applied)
     bpy.ops.object.select_all(action='SELECT'); bpy.context.view_layer.objects.active = bpy.context.scene.objects[0]
@@ -132,13 +132,27 @@ def export(name):
         if o.type != 'MESH' or len(o.data.polygons) < 60: continue
         dm = o.modifiers.new('dec', 'DECIMATE'); dm.ratio = max(ratio, 60 / len(o.data.polygons))
         bpy.context.view_layer.objects.active = o; bpy.ops.object.modifier_apply(modifier='dec')
-    # one mesh per model (one draw per material)
-    bpy.ops.object.select_all(action='SELECT'); bpy.context.view_layer.objects.active = [o for o in bpy.context.scene.objects if o.type == 'MESH'][0]
-    bpy.ops.object.join()
+    # one mesh per model (one draw per material); a pivot group (e.g. a tank turret) is its own mesh under an empty
+    def join(objs, active):
+        bpy.ops.object.select_all(action='DESELECT')
+        for o in objs: o.select_set(True)
+        bpy.context.view_layer.objects.active = active; bpy.ops.object.join(); return active
+    meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+    if pivot:
+        pname, ploc, pobjs = pivot
+        pobjs = [o for o in meshes if o.name in {p.name for p in pobjs if p.name in bpy.data.objects}]
+        rest = [o for o in meshes if o not in pobjs]
+        join(rest, rest[0]); tur = join(pobjs, pobjs[0])
+        emp = bpy.data.objects.new(pname, None); bpy.context.collection.objects.link(emp); emp.location = ploc
+        bpy.context.view_layer.update()
+        tur.parent = emp; tur.matrix_parent_inverse = emp.matrix_world.inverted()
+    else:
+        join(meshes, meshes[0])
+    bpy.ops.object.select_all(action='SELECT')
     path = os.path.join(OUT, name + '.glb')
     bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True, export_apply=True,
                               export_yup=True, export_materials='EXPORT', export_animations=False)
-    STATS[name] = {'hero_tris': hero, 'game_tris': tri_count(), 'kb': round(os.path.getsize(path) / 1024, 1), 'materials': len(bpy.context.scene.objects[0].data.materials)}
+    STATS[name] = {'hero_tris': hero, 'game_tris': tri_count(), 'kb': round(os.path.getsize(path) / 1024, 1), 'materials': sum(len(o.data.materials) for o in bpy.context.scene.objects if o.type == 'MESH')}
     print(name, STATS[name])
 
 STATS = {}
@@ -268,6 +282,48 @@ def build_cow():
     sphere(0.09, (0, 1.38, 0.62), mat(spot), scale=(1, 1, 1.5))
     export('cow')
 
+def build_sheep():
+    reset()
+    wool, face = '#f5f0ff', '#3a2f4a'
+    for (x, y, z, r) in [(0, 0.3, 1.15, 0.7), (0.32, -0.15, 1.2, 0.55), (-0.32, -0.15, 1.2, 0.55), (0.3, 0.6, 1.1, 0.5), (-0.3, 0.6, 1.1, 0.5), (0, -0.45, 1.25, 0.55), (0, 0.85, 1.15, 0.5), (0, 0.2, 1.55, 0.55)]:
+        sphere(r, (x, y, z), mat(wool), seg=16, rings=10)
+    box((0.42, 0.5, 0.5), (0, -0.95, 1.35), mat(face), bevel=0.16, seg=3)
+    sphere(0.32, (0, -0.85, 1.62), mat(wool), seg=12, rings=8)
+    for side in (-1, 1):
+        sphere(0.11, (0.13 * side, -1.17, 1.45), mat('#ffffff'), seg=10, rings=6); sphere(0.055, (0.14 * side, -1.24, 1.45), mat('#0b0620', 'gloss'), seg=8, rings=5)
+        sphere(1, (0.3 * side, -0.9, 1.45), mat(face), scale=(0.16, 0.06, 0.08), rot=(0, 0.4 * side, 0))
+        for y in (-0.35, 0.5): cyl(0.08, 0.7, (0.25 * side, y, 0.38), mat(face), r2=0.07)
+    export('sheep')
+
+def build_pig():
+    reset()
+    pink, dark = '#ff9fbf', '#c86a8a'
+    sphere(1, (0, 0, 0.95), mat(pink), scale=(0.62, 0.95, 0.58), seg=24, rings=14)
+    box((0.62, 0.5, 0.55), (0, -0.95, 1.05), mat(pink), bevel=0.2, seg=4, sub=1)
+    cyl(0.24, 0.16, (0, -1.27, 1.0), mat('#ff7fa6'), rot=(math.pi / 2, 0, 0), bevel=0.04)
+    for side in (-1, 1):
+        sphere(0.05, (0.08 * side, -1.36, 1.02), mat(dark), seg=8, rings=5)
+        sphere(0.11, (0.17 * side, -1.15, 1.25), mat('#ffffff'), seg=10, rings=6); sphere(0.055, (0.18 * side, -1.24, 1.25), mat('#0b0620', 'gloss'), seg=8, rings=5)
+        box((0.22, 0.06, 0.26), (0.24 * side, -0.85, 1.4), mat(dark), rot=(0.5, 0, 0.4 * side), bevel=0.02)
+        for y in (-0.5, 0.5): cyl(0.13, 0.5, (0.32 * side, y, 0.25), mat(pink), r2=0.11, bevel=0.03)
+    arc_tube(0.15, 0.035, 0, math.pi * 1.6, (0, 0.98, 1.1), mat(dark), rot=(math.pi / 2, 0, 0))
+    export('pig')
+
+def build_chicken():
+    reset()
+    white, red, yellow = '#fffaf0', '#ff3b3b', '#ffb020'
+    sphere(1, (0, 0.05, 0.62), mat(white), scale=(0.32, 0.42, 0.34), seg=18, rings=12)
+    sphere(0.22, (0, -0.3, 0.98), mat(white), seg=14, rings=10)
+    cone(0.07, 0.18, (0, -0.52, 0.96), mat(yellow), rot=(math.pi / 2, 0, 0)) if False else cyl(0.08, 0.18, (0, -0.52, 0.96), mat(yellow), r2=0.0, rot=(math.pi / 2, 0, 0), verts=8)
+    for i, dz in enumerate((0, 0.07, 0.02)): sphere(0.07, (0, -0.3 + (i - 1) * 0.08, 1.2 + dz), mat(red), seg=8, rings=5)
+    sphere(0.06, (0, -0.47, 0.86), mat(red), scale=(0.7, 0.7, 1.3), seg=8, rings=5)
+    for side in (-1, 1):
+        sphere(0.05, (0.12 * side, -0.42, 1.03), mat('#0b0620', 'gloss'), seg=8, rings=5)
+        sphere(1, (0.3 * side, 0.08, 0.66), mat(white), scale=(0.08, 0.3, 0.2))
+        cyl(0.025, 0.32, (0.1 * side, 0.02, 0.16), mat(yellow), verts=6)
+    sphere(1, (0, 0.42, 0.85), mat(white), scale=(0.12, 0.18, 0.22), rot=(-0.5, 0, 0))
+    export('chicken')
+
 # ------------------------------------------------------------------ 4. house
 def build_house():
     reset()
@@ -355,7 +411,8 @@ def build_tank():
         box((1.0, 6.0, 0.14), (x, 0, 1.28), mat(dark), bevel=0.05)                               # fender
         sphere(0.17, (side * 0.85, -2.85, 1.25), mat('#ffd23f', 'glow', 2.0), scale=(1, 0.6, 1))   # headlights
         box((0.5, 0.7, 0.4), (side * 0.75, 2.3, 1.55), mat(dark), bevel=0.1)                     # rear boxes
-    # turret: squashed dome, mantlet, barrel with muzzle brake, hatch, antenna
+    # turret: squashed dome, mantlet, barrel with muzzle brake, hatch, antenna (exported on its own pivot node)
+    before = set(bpy.context.scene.objects)
     sphere(1.35, (0, 0.35, 1.95), mat(body), scale=(1, 1.15, 0.55), seg=32, rings=16)
     box((0.9, 0.5, 0.55), (0, -0.95, 1.95), mat(dark), bevel=0.15)
     cyl(0.17, 3.0, (0, -2.6, 2.0), mat(dark, 'metal'), rot=(math.pi / 2, 0, 0), verts=16)
@@ -371,7 +428,8 @@ def build_tank():
     f = bm.faces.new(pts); bmesh.ops.solidify(bm, geom=[f], thickness=0.05); bm.to_mesh(me); bm.free()
     o = bpy.data.objects.new('star', me); bpy.context.collection.objects.link(o)
     o.location = (-0.35, 0.15, 2.68); o.rotation_euler = (0, 0, math.pi); finish(o, mat(cream), smooth=False)
-    export('tank')
+    turret = [x for x in bpy.context.scene.objects if x not in before]
+    export('tank', pivot=('Tank_Turret', (0, 0.35, 1.95), turret))
 
 # ------------------------------------------------------------------ 6. civilian (chibi)
 def build_civilian():
@@ -406,6 +464,8 @@ def build_civilian():
     arc_tube(0.07, 0.014, math.pi * 1.15, math.pi * 1.85, (0, -0.42, 1.48), mat('#6e2a3a'), rot=(math.pi / 2 - 0.3, 0, 0))
     export('civilian')
 
-for fn in (build_saucer, build_alien, build_cow, build_house, build_tank, build_civilian):
-    fn()
-json.dump(STATS, open(os.path.join(OUT, 'stats.json'), 'w'), indent=1)
+if __name__ == '__main__':
+    fns = (build_tank, build_cow, build_sheep, build_pig, build_chicken, build_alien, build_saucer) if '--game' in sys.argv else (build_saucer, build_alien, build_cow, build_house, build_tank, build_civilian)
+    for fn in fns:
+        fn()
+    json.dump(STATS, open(os.path.join(OUT, 'stats.json'), 'w'), indent=1)

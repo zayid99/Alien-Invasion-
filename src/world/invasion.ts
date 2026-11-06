@@ -4,7 +4,7 @@ import { G, track } from '../game/state';
 import { DEFENDER, earthForces, canAfford, payCost, costText } from '../data/balance';
 import { UNIT_TYPES } from '../data/units';
 import type { UnitKey } from '../data/units';
-import { instance } from '../core/assets';
+import { instance, hasModel } from '../core/assets';
 import { Kit, box, cyl, sph } from '../gfx/kit';
 import { makeGrayAlien, miniSaucer, makeWalker, whiteFlag } from '../gfx/models';
 import { FX, FXC, shellMaterial } from '../gfx/fx';
@@ -255,7 +255,9 @@ export function spawnUnit(type: UnitKey, x: number, z: number, drop = false) {
   if (type === 'brute') { e = hypnoBrute(x, z); e.r = T.radius; }
   else {
     let obj: THREE.Object3D, legs: THREE.Group[] = null;
-    if (type === 'clone') obj = makeGrayAlien(); else if (type === 'saucer') obj = miniSaucer(); else { const w = makeWalker(); obj = w.group; legs = w.legs; }
+    if (type === 'clone') obj = hasModel('b_alien') ? instance('b_alien').root : makeGrayAlien();
+    else if (type === 'saucer') obj = hasModel('b_saucer') ? instance('b_saucer').root : miniSaucer();
+    else { const w = makeWalker(); obj = w.group; legs = w.legs; }
     obj.position.set(x, T.air ? 12 : 0, z);
     e = makeEnt(type, obj, { r: T.radius, hh: type === 'walker' ? 6 : type === 'saucer' ? 0 : 1, team: 'alien', hp: T.hp, brain: brainUnit, mini: '#d2b0ff', miniR: type === 'walker' ? 3 : 1.7, air: T.air, shadow: type === 'walker' ? 6.5 : type === 'saucer' ? 3.5 : 1.4, heading: Math.PI });
     e.legs = legs;

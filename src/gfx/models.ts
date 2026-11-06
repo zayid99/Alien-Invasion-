@@ -8,6 +8,7 @@ import { Kit, cachedModel, box, cyl, sph, cone, ico, lathe, unitPrism, unitPyram
 import { fresnelMaterial } from '../core/engine';
 import { chance, pick, rand, reducedMotion } from '../core/util';
 import { PAL } from './palette';
+import { hasModel, instance } from '../core/assets';
 import { skinById } from '../data/skins';
 import type { Skin } from '../data/skins';
 import { toonMaterial, inkify } from './toon';
@@ -192,21 +193,37 @@ export const miniSaucer = () => cachedModel('miniufo', k => {
 /** Mega Walker: a saucer body on three legs, in Empire colours (no orange on alien things). */
 export function makeWalker() {
   const group = new THREE.Group();
-  const body = cachedModel('walkerBody', k => {
-    k.add(lathe([[3.3, 0.2], [2.6, 1.0], [1.2, 1.6], [0.01, 1.7]], 20), PAL.saucerHull, { m: 'gloss' });
-    k.add(lathe([[0.01, -1.4], [2.2, -1.2], [3.2, -0.4], [3.3, 0.2]], 20), PAL.saucerUnder, { m: 'metal' });
-    k.add(sph(0.8, 12, 8), PAL.slime, { p: [0, -0.2, 3.0], m: 'glow', k: 3 });
-    k.add(new THREE.TorusGeometry(3.28, 0.13, 5, 26), PAL.violet, { p: [0, 0.2, 0], r: [Math.PI / 2, 0, 0], m: 'glow', k: 2.6 });
-    k.add(sph(1.3, 12, 8), PAL.domeGlass, { p: [0, 1.4, 0], s: [1, 0.6, 1], m: 'gloss' });
+  const body = cachedModel('walkerBody2', k => {
+    // armoured saucer hull with raised plates, a cockpit dome with a gray pilot, and a heat-ray cannon in front
+    k.add(lathe([[3.6, 0.2], [3.3, 0.7], [2.6, 1.2], [1.4, 1.7], [0.01, 1.8]], 28), PAL.saucerHull, { m: 'gloss' });
+    k.add(lathe([[0.01, -1.6], [1.6, -1.5], [2.8, -1.0], [3.5, -0.3], [3.6, 0.2]], 28), PAL.saucerUnder, { m: 'metal' });
+    k.add(new THREE.TorusGeometry(3.58, 0.2, 6, 36), PAL.saucerRim, { p: [0, 0.2, 0], r: [Math.PI / 2, 0, 0], m: 'metal' });
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2 + 0.5; k.add(box(1.1, 0.35, 1.6), PAL.saucerPanel, { p: [Math.cos(a) * 2.6, 1.15, Math.sin(a) * 2.6], r: [0, -a, -0.35], m: 'metal' }); }
+    for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; k.add(sph(0.2, 6, 5), C.bulbs[i % 4], { p: [Math.cos(a) * 3.75, 0.2, Math.sin(a) * 3.75], m: 'glow', k: 2.6 }); }
+    k.add(cyl(1.5, 1.6, 0.4, 16), PAL.saucerCollar, { p: [0, 1.75, 0], m: 'metal' });
+    addGrayHead(k, 2.45, 0.55);
+    k.add(sph(1.45, 16, 10), PAL.domeGlass, { p: [0, 1.85, 0], s: [1, 0.85, 1], m: 'gloss' });
+    // heat-ray cannon: housing, barrel, slime emitter ring and glowing tip
+    k.add(box(1.2, 0.9, 1.4), PAL.saucerCollar, { p: [0, -0.9, 2.6], m: 'metal' });
+    k.add(cyl(0.32, 0.42, 2.4, 10), PAL.saucerUnder, { p: [0, -1.0, 3.8], r: [Math.PI / 2, 0, 0], m: 'metal' });
+    k.add(new THREE.TorusGeometry(0.42, 0.1, 5, 12), PAL.slime, { p: [0, -1.0, 4.6], m: 'glow', k: 2.4 });
+    k.add(sph(0.36, 10, 8), PAL.slime, { p: [0, -1.0, 5.05], m: 'glow', k: 3 });
+    // belly emitter
+    k.add(cyl(1.1, 1.1, 0.1, 14), PAL.slime, { p: [0, -1.62, 0], m: 'glow', k: 2.2 });
   });
   body.position.y = 9; group.add(body);
   const legs: THREE.Group[] = [];
   for (let i = 0; i < 3; i++) {
     const a = i / 3 * Math.PI * 2 + Math.PI, leg = new THREE.Group(); leg.position.set(Math.sin(a) * 2.2, 8.6, Math.cos(a) * 2.2); leg.rotation.y = a;
-    const inner = cachedModel('walkerLeg', k => {
-      k.add(cyl(0.26, 0.18, 10.2, 6), PAL.saucerUnder, { p: [0, -5.0, 0], m: 'metal' });
-      k.add(sph(0.5, 8, 6), PAL.slime, { m: 'glow', k: 2.2 });
-      k.add(cone(0.7, 0.9, 6), PAL.saucerCollar, { p: [0, -10.1, 0], r: [Math.PI, 0, 0], m: 'metal' });
+    const inner = cachedModel('walkerLeg2', k => {
+      // hip joint, armoured thigh angling out, glowing knee, slim shin angling back in, three-claw foot
+      k.add(sph(0.62, 10, 8), PAL.saucerCollar, { m: 'metal' });
+      k.add(cyl(0.34, 0.26, 5.2, 8), PAL.saucerUnder, { p: [0, -2.5, 0.55], r: [0.22, 0, 0], m: 'metal' });
+      k.add(box(0.7, 2.4, 0.5), PAL.saucerPanel, { p: [0, -2.2, 0.85], r: [0.22, 0, 0], m: 'metal' });
+      k.add(sph(0.48, 10, 8), PAL.slime, { p: [0, -5.1, 1.1], m: 'glow', k: 2.4 });
+      k.add(cyl(0.24, 0.18, 5.2, 8), PAL.saucerUnder, { p: [0, -7.6, 0.55], r: [-0.22, 0, 0], m: 'metal' });
+      k.add(cyl(0.55, 0.75, 0.5, 10), PAL.saucerCollar, { p: [0, -10.1, 0], m: 'metal' });
+      for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2; k.add(cone(0.22, 1.1, 6), PAL.saucerCollar, { p: [Math.sin(a) * 0.6, -10.2, Math.cos(a) * 0.6], r: [Math.cos(a) * 1.3, 0, -Math.sin(a) * 1.3], m: 'metal' }); }
     });
     inner.rotation.x = -0.33; leg.add(inner); group.add(leg); legs.push(leg);
   }
@@ -290,7 +307,9 @@ export const makeHaybale = () => cachedModel('haybale', k => {
   k.add(cyl(0.85, 0.85, 1.3, 12), C.hay, { p: [0, 0.85, 0], r: [0, 0, Math.PI / 2] });
   k.add(cyl(0.6, 0.6, 1.32, 12), C.hayDark, { p: [0, 0.85, 0], r: [0, 0, Math.PI / 2] });
 });
-export const FARM_MAKERS: Record<string, () => THREE.Group> = { cow: makeCow, sheep: makeSheep, pig: makePig, chicken: makeChicken };
+/** Farm animals: the Blender remakes when loaded (they are in the first-night set), else the code-built ones. */
+const blenderOr = (id: string, kit: () => THREE.Group) => (): THREE.Group => (hasModel(id) ? instance(id).root : kit());
+export const FARM_MAKERS: Record<string, () => THREE.Group> = { cow: blenderOr('b_cow', makeCow), sheep: blenderOr('b_sheep', makeSheep), pig: blenderOr('b_pig', makePig), chicken: blenderOr('b_chicken', makeChicken) };
 
 // ---------- farm + town buildings (added straight into a world Kit) ----------
 // Note: these run inside seeded() map builders, so the number and order of chance/rand/pick calls must
@@ -306,23 +325,46 @@ function addWindow(k: Kit, sx: number, y: number, sz: number, nx: number, nz: nu
   k.add(box(gw + 0.25, gh + 0.25, 0.06), PAL.ink, { p: [sx + nx * 0.02, y, sz + nz * 0.02], r: [0, ry, 0] });
   k.add(box(gw, gh, 0.08), on ? PAL.windowLit : PAL.windowDark, { p: [sx + nx * 0.035, y, sz + nz * 0.035], r: [0, ry, 0], m: on ? 'glow' : 'std', k: on ? 1.3 : 1 });
 }
-function windowsAround(k: Kit, w: number, d: number, y: number, lit = 0.6) {
+function windowsAround(k: Kit, w: number, d: number, y: number, lit = 0.6, shutter?: string) {
   for (const sx of [-1, 1]) {
-    addWindow(k, sx * w * 0.27, y, d / 2, 0, 1, chance(lit)); addWindow(k, sx * w * 0.27, y, -d / 2, 0, -1, chance(lit));
+    const fx = sx * w * 0.27;
+    addWindow(k, fx, y, d / 2, 0, 1, chance(lit)); addWindow(k, fx, y, -d / 2, 0, -1, chance(lit));
     addWindow(k, w / 2, y, sx * d * 0.22, 1, 0, chance(lit)); addWindow(k, -w / 2, y, sx * d * 0.22, -1, 0, chance(lit));
+    if (shutter) {
+      // front windows: shutters and a flower box
+      for (const s of [-1, 1]) k.add(box(0.36, 1.15, 0.08), shutter, { p: [fx + s * 0.78, y, d / 2 + 0.05] });
+      k.add(box(1.25, 0.28, 0.34), PAL.door, { p: [fx, y - 0.75, d / 2 + 0.18] });
+      for (let i = 0; i < 3; i++) k.add(sph(0.14, 6, 5), ['#ff6fb5', '#ffd23f', '#ff5a4f'][i], { p: [fx - 0.4 + i * 0.4, y - 0.55, d / 2 + 0.22] });
+    }
   }
 }
-/** A house: pastel walls, candy roof (overhang 1.2), framed windows, a brown door with a yellow knob, chimney. */
+/** A gable roof (solid triangular prism), ridge along x: width w across the ridge, length l along it. */
+function gableX(w: number, h: number, l: number) {
+  const s = new THREE.Shape(); s.moveTo(-w / 2, 0); s.lineTo(w / 2, 0); s.lineTo(0, h); s.closePath();
+  const g = new THREE.ExtrudeGeometry(s, { depth: l, bevelEnabled: false }); g.translate(0, 0, -l / 2); g.rotateY(Math.PI / 2); return g;
+}
+/**
+ * A house: pastel walls on a plinth, a gable roof in a candy colour with overhang and ridge cap, framed windows
+ * (shutters and flower boxes in front), a framed door with canopy and step, porch lamp and chimney.
+ */
 export function addHouse(k: Kit, x: number, z: number, ry: number, walls: string[], roofs: string[], o: { w?: number; d?: number; lit?: number } = {}) {
-  const w = o.w || rand(6, 8), d = o.d || rand(5.5, 7), h = rand(3.2, 4);
+  const w = o.w || rand(6, 8), d = o.d || rand(5.5, 7), h = rand(3.2, 4), roof = pick(roofs), rh = rand(2.2, 3), base = 0.35, top = base + h;
   k.at(x, 0, z, ry);
-  k.add(box(w, h, d), pick(walls), { p: [0, h / 2, 0] });
-  k.add(unitPyramid(), pick(roofs), { p: [0, h, 0], s: [w * 1.2, rand(2, 2.8), d * 1.2] });
-  k.add(box(1.1, 2.0, 0.12), PAL.door, { p: [0, 1.0, d / 2 + 0.05] });
-  k.add(sph(0.12, 8, 6), PAL.poster, { p: [0.32, 1.0, d / 2 + 0.15] });                        // door knob
-  k.add(box(0.15, 0.15, 0.06), PAL.windowLit, { p: [0, 2.3, d / 2 + 0.03], m: 'glow', k: 1.3 });  // porch lamp
-  k.add(box(0.8, 1.6, 0.8), PAL.chimney, { p: [w * 0.28, h + 1.4, -d * 0.2] });
-  windowsAround(k, w, d, h * 0.55, o.lit ?? 0.65);
+  k.add(box(w + 0.4, base, d + 0.4), '#a89ac8', { p: [0, base / 2, 0] });
+  k.add(box(w, h, d), pick(walls), { p: [0, base + h / 2, 0] });
+  k.add(box(w + 0.3, 0.25, d + 0.3), '#fff6e0', { p: [0, top + 0.05, 0] });                       // eaves trim
+  k.add(gableX(d + 1.4, rh, w + 1.0), roof, { p: [0, top + 0.15, 0] });
+  k.add(box(w + 1.1, 0.3, 0.45), PAL.ink, { p: [0, top + 0.15 + rh, 0] });                         // ridge cap
+  k.add(box(0.85, 1.8, 0.85), PAL.chimney, { p: [w * 0.28, top + rh * 0.7, -d * 0.2] });
+  k.add(box(1.05, 0.2, 1.05), PAL.ink, { p: [w * 0.28, top + rh * 0.7 + 0.95, -d * 0.2] });
+  const fz = d / 2;
+  k.add(box(1.45, 2.35, 0.1), '#fff6e0', { p: [0, base + 1.12, fz + 0.04] });                    // door frame
+  k.add(box(1.05, 2.0, 0.14), PAL.door, { p: [0, base + 1.0, fz + 0.06] });
+  k.add(sph(0.12, 8, 6), PAL.poster, { p: [0.32, base + 1.0, fz + 0.16] });                        // door knob
+  k.add(box(1.9, 0.12, 0.8), roof, { p: [0, base + 2.45, fz + 0.38], r: [-0.25, 0, 0] });          // canopy
+  k.add(box(1.7, 0.22, 0.7), '#a89ac8', { p: [0, 0.11, fz + 0.5] });                              // step
+  k.add(box(0.15, 0.15, 0.06), PAL.windowLit, { p: [0.95, base + 2.1, fz + 0.03], m: 'glow', k: 1.3 });   // porch lamp
+  windowsAround(k, w, d, base + h * 0.55, o.lit ?? 0.65, roof);
   return footprint(x, z, ry, w, d);
 }
 /** Red barn with cream trim and a plum roof; the loft window sits on the roof gable. */

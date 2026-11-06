@@ -31,7 +31,7 @@ Then open the address it prints (usually http://localhost:5173).
 
 ```sh
 npm run build              # normal web build → dist/
-npm run build:crazygames   # same, plus the CrazyGames SDK → dist/
+npm run build:crazygames   # same, plus the CrazyGames SDK → dist-crazygames/
 ```
 
 Upload the **contents** of `dist/` (zip it) to the CrazyGames developer portal. The build uses relative paths, so it works from any folder.

@@ -12,7 +12,7 @@ P0 = must ship in this sprint. Evidence = how "done" is proven.
 | Helicopters fair, war room honest | "Even fight" armies win alone; "Risky" ones need the player | invasion balance runs (`docs/STUDIO_REVIEW.md` §2 method) |
 | SDK order | `gameplayStart` never before `loadingStop` | code review (platform.ts) |
 
-## Epic 1: Night sites (P0) — [night-sites.md](gdd/night-sites.md)
+## Epic 1: Night sites (P0) ✅ — [night-sites.md](gdd/night-sites.md)
 | Story | Acceptance | Evidence |
 |---|---|---|
 | 1.1 Twists on sites | twisted site names + goal on the globe card from night 3 | e2e: refreshed sites include twists |
@@ -20,14 +20,14 @@ P0 = must ship in this sprint. Evidence = how "done" is proven.
 | 1.3 Goal progress line | objective line shows `name: x/y` | screenshot |
 | 1.4 Grade + best | report shows stars, score, best; bonus paid when the goal is met | e2e: grade function + bonus |
 
-## Epic 2: Invasion command (P0) — [invasion-command.md](gdd/invasion-command.md)
+## Epic 2: Invasion command (P0) ✅ — [invasion-command.md](gdd/invasion-command.md)
 | Story | Acceptance | Evidence |
 |---|---|---|
 | 2.1 Gravity drop | live soldier held, dropped on a pylon damages it | e2e: drop on pylon lowers its hp |
 | 2.2 Rally | F sets a ring; army objective switches to the target there | e2e: objective after rally |
 | 2.3 Fair loss | two losses → defense +1 only | e2e: cityLevel after 2 failures |
 
-## Epic 3: Occupation (P0) — [occupation.md](gdd/occupation.md)
+## Epic 3: Occupation (P0) ✅ — [occupation.md](gdd/occupation.md)
 | Story | Acceptance | Evidence |
 |---|---|---|
 | 3.1 Resistance + revolt | grows daily; revolt at 100 stops tribute | e2e: advance days |
@@ -35,7 +35,7 @@ P0 = must ship in this sprint. Evidence = how "done" is proven.
 | 3.3 Garrisons | victory leaves 15 % of survivors; report row | e2e: army after win |
 | 3.4 Globe display | resistance bar, REVOLT tag, city panel rows | screenshot |
 
-## Epic 4: Chapters and ending (P0) — [campaign-chapters.md](gdd/campaign-chapters.md)
+## Epic 4: Chapters and ending (P0) ✅ — [campaign-chapters.md](gdd/campaign-chapters.md)
 | Story | Acceptance | Evidence |
 |---|---|---|
 | 4.1 Chapter gating | tier n+1 unlocks only with chapter n's capital | e2e: capture capital → tier up |
@@ -43,16 +43,23 @@ P0 = must ship in this sprint. Evidence = how "done" is proven.
 | 4.3 Final assault + ending | after 4 capitals the final card; win → ending modal | e2e: final win shows ending |
 | 4.4 New Game+ | keeps upgrades/army, resets map, harder cities | e2e: state after NG+ |
 
-## Epic 5: Return hooks (P0) — [return-hooks.md](gdd/return-hooks.md)
+## Epic 5: Return hooks (P0) ✅ — [return-hooks.md](gdd/return-hooks.md)
 | Story | Acceptance | Evidence |
 |---|---|---|
 | 5.1 Away tribute | save 3 h old → card + tribute paid | e2e: boot with an old save |
 | 5.2 Counter-attack | 2+ cities, 2 h+ away → one city's resistance +40, headline | e2e |
 | 5.3 Daily challenge | one challenge site per date, playable once, best kept | e2e |
 
-## Epic 6: Release (P0)
+## Epic 6: Release (P0) ✅
 | Story | Acceptance | Evidence |
 |---|---|---|
 | 6.1 Docs | GDD v0.4, systems index, ADRs, this file | files in `docs/` |
 | 6.2 Build | `tsc`, both builds, e2e green; low-end draw calls within budget | command output |
 | 6.3 Upload | new CrazyGames zip v0.4.0 from HEAD | zip in `marketing/` |
+
+## Sprint result (6 Nov 2026)
+All stories done. Evidence: `npm test` (tools/e2e.mjs) checks every acceptance criterion marked "e2e" above and fails
+if any regresses; the bug A check was proven by re-introducing the bug (the test then fails with "Defeat").
+Low-end check (low graphics, CPU ×4 slower): busy mission 208 draw calls, County Fair night 246, invasion 288.
+Upload: `marketing/alien-invasion-conquer-earth-v0.4.0-crazygames.zip` (131 files, 6.5 MB, no dev hooks).
+Not verified by a human yet: how the twists, gravity drop and chapters feel. Next step: a playtest with real players.

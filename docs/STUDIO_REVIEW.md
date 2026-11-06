@@ -98,3 +98,9 @@ Verdict on `c229ed0`: **NO-GO** until three fixes: rebuild the zip from the late
 helicopters and make the war room count them. Ready: covers, store text, performance, credits and licences, no
 personal data collected, progress save through CrazyGames. Gaps: the preview video shows the old cities; no plan for
 a first patch.
+
+## 7. Follow-up (same day, v0.4.0)
+
+All three launch blockers are fixed (and bugs B, C and the low ones), and the five design changes are built. See
+`docs/stories.md` for the evidence. Launch verdict for v0.4.0: **GO for Basic Launch**, with two open items: the
+preview video still shows the old cities, and a human playtest of the new systems has not happened yet.

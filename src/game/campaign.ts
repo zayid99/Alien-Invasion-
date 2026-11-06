@@ -8,7 +8,8 @@ import { CFG, RES, earthForces, DEFENDER } from '../data/balance';
 import type { Wallet } from '../data/balance';
 import { UNIT_KEYS, unitPower } from '../data/units';
 import { clamp, pick, rand, hashString } from '../core/util';
-import { TWISTS, TWIST_IDS, NIGHT, LOSS, OCC } from '../data/campaign';
+import { TWISTS, TWIST_IDS, NIGHT, LOSS, OCC, CHAPTERS, FINAL, NGPLUS } from '../data/campaign';
+import type { Chapter } from '../data/campaign';
 import { addNews } from './news';
 import type { TwistId } from '../data/campaign';
 import { today } from './meta';
@@ -20,11 +21,12 @@ export const occupiedCities = () => CITIES.filter(c => G.save.cities[c.id]?.occu
 
 /** How hard an abduction night is in a region (1 = easy). */
 export function missionLevel(regionId: string) {
-  const s = G.save; return 1 + Math.floor(s.day / 6) + Math.floor(s.awareness / 20) + Math.floor(regionState(regionId).alert / 40);
+  const s = G.save; return 1 + Math.floor(s.day / 6) + Math.floor(s.awareness / 20) + Math.floor(regionState(regionId).alert / 40) + NGPLUS.missionLevel * (s.ngPlus || 0);
 }
 /** Earth's defense level for a city invasion. */
 export function cityLevel(c: City) {
-  const s = G.save; return Math.max(1, c.size - 1 + Math.floor(s.day / 8) + Math.floor(s.awareness / 25) + Math.min(LOSS.maxPenalty, cityState(c.id).attempts));
+  const s = G.save; if (c.id === FINAL.city.id) return FINAL.level + FINAL.ngLevel * (s.ngPlus || 0);
+  return NGPLUS.cityLevel * (s.ngPlus || 0) + Math.max(1, c.size - 1 + Math.floor(s.day / 8) + Math.floor(s.awareness / 25) + Math.min(LOSS.maxPenalty, cityState(c.id).attempts));
 }
 const defPower = (k: keyof typeof DEFENDER) => { const d = DEFENDER[k]; return Math.round(Math.sqrt(d.hp * d.dmg * d.rate)); };
 export function earthPower(L: number) {
@@ -45,6 +47,21 @@ export function tribute(): Wallet {
   const w: Wallet = { humans: 0, biomass: 0, metal: 0 };
   for (const c of occupiedCities()) { const t = cityTribute(c); for (const r of RES) w[r] += t[r]; }
   return w;
+}
+// ---------------------------------------------------------------- chapters (docs/gdd/campaign-chapters.md)
+/** The first chapter whose capital still stands (null once all four have fallen). */
+export const currentChapter = (): Chapter | null => CHAPTERS.find(ch => !cityState(ch.capital).occupied) || null;
+/** Tier reached by conquering the capitals in order. */
+export function chapterTier() { let t = 1; for (const ch of CHAPTERS) if (t === ch.tier && cityState(ch.capital).occupied) t = ch.tier + 1; return Math.min(4, t); }
+export const finalOpen = () => !currentChapter() && !G.save.ended;
+export const chapterOf = (cityId: string) => CHAPTERS.find(ch => ch.capital === cityId) || null;
+/** New Game+: keep upgrades, army, skins and records; the map resets and Earth gets stronger. */
+export function startNewGamePlus() {
+  const s = G.save; s.ngPlus = (s.ngPlus || 0) + 1; s.ended = false;
+  s.day = 1; s.awareness = 0; s.tierUnlocked = 1; s.regions = {}; s.cities = {}; s.sites = [];
+  s.res = { humans: FINAL.ngStart, biomass: FINAL.ngStart, metal: FINAL.ngStart };
+  addNews(`Earth rebuilds its defenses. "This time we are ready," says the World Defense Command (New Game+ ${s.ngPlus})`);
+  refreshSites();
 }
 /** Daily resistance growth; returns the cities that just revolted. */
 function growResistance(): string[] {
@@ -106,7 +123,7 @@ export function advanceDay(share = 1): DayReport {
   s.awareness = Math.max(0, s.awareness - 0.5);
   const revolts = growResistance();
   const t = tribute(); for (const r of RES) { t[r] = Math.floor(t[r] * share); s.res[r] += t[r]; s.totals[r] += t[r]; }   // share < 1: a night ended early
-  const before = s.tierUnlocked; s.tierUnlocked = Math.min(4, 1 + (s.totals.citiesTaken >= 1 ? 1 : 0) + (s.totals.citiesTaken >= 3 ? 1 : 0) + (s.totals.citiesTaken >= 6 ? 1 : 0));
+  const before = s.tierUnlocked; s.tierUnlocked = Math.max(s.tierUnlocked, chapterTier());   // chapters: each capital opens the next tier (never lowered)
   refreshSites();
   return { day: s.day, tribute: t, unlocked: s.tierUnlocked > before ? TIER_NAMES[s.tierUnlocked] : null, revolts };
 }

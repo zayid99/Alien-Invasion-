@@ -27,6 +27,8 @@ export const G = {
   lastNight: null as { banked: Record<string, number>; lost: Record<string, number> } | null,
   /** conquered cities a night just calmed (occupation) */
   lastCalmed: [] as string[],
+  /** the final assault was just won: show the ending on the way back to Earth */
+  pendingEnding: false,
   world: null as THREE.Group | null,
   ents: [] as Entity[],
   obstacles: [] as Footprint[],

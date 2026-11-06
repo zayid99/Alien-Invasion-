@@ -159,6 +159,10 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'giant-slayer', name: 'Giant Slayer', text: 'Defeat a city boss', test: () => G.save.best.bosses >= 1 },
   { id: 'maxed', name: 'Fully Loaded', text: 'Upgrade a saucer system to the max', test: () => Object.values(G.save.up).some(v => v >= 4) },
   { id: 'loyal', name: 'Loyal Commander', text: 'Claim the daily supply drop 7 days in a row', test: () => G.save.daily.streak >= 7 },
+  // v0.4
+  { id: 'triple-star', name: 'Triple Star', text: 'Earn 3 stars on a night', test: () => G.save.best.stars3 >= 1 },
+  { id: 'gravity', name: 'Gravity Works', text: 'Drop a defender from the beam in a city battle', test: () => G.save.best.drops >= 1 },
+  { id: 'earth-conquered', name: 'Earth Conquered', text: 'Win the final assault', test: () => G.save.ended || G.save.ngPlus > 0 },
 ];
 export const achievementsDone = () => ACHIEVEMENTS.filter(a => G.save.ach[a.id]).length;
 /** Unlock anything newly earned (cheap: called after every relevant event). */

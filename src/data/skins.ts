@@ -11,5 +11,6 @@ export const SKINS: Skin[] = [
   { id: 'camo', name: 'Earth Camo', hull: '#77a843', under: '#3a3550', rim: '#5e8a34', panel: '#8cbf55', collar: '#3a3550', spots: '#4f7a2c', unlock: 'Beam up a tank', ach: 'tank-you' },
   { id: 'candy', name: 'Candy Pop', hull: '#ffd0e6', under: '#ff6fb5', rim: '#4ff0d0', panel: '#ffffff', collar: '#ff6fb5', unlock: '7-day supply streak', ach: 'loyal' },
   { id: 'golden', name: 'Golden Empire', hull: '#ffd23f', under: '#c47a00', rim: '#fff6e0', panel: '#ffe38a', collar: '#c47a00', unlock: 'Capture 5 cities', ach: 'continental' },
+  { id: 'conqueror', name: 'Conqueror', hull: '#2b1b72', under: '#ffd23f', rim: '#ffd23f', panel: '#6a3fe0', collar: '#ffd23f', spots: '#ffd23f', unlock: 'Win the final assault', ach: 'earth-conquered' },
 ];
 export const skinById = (id: string) => SKINS.find(s => s.id === id) || SKINS[0];

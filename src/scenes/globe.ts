@@ -17,9 +17,9 @@ import { clearWorld } from '../world/maps/common';
 import { regionState, cityState, regionUnlocked, cityLevel, earthPower, armyPower, verdict, occupiedCities, cityTribute } from '../game/campaign';
 import { SFX } from '../core/audio';
 import { $, UI, ICON } from '../ui/dom';
-import { dailyCardHTML } from '../ui/meta';
+import { dailyCardHTML, chapterCardHTML } from '../ui/meta';
 import { tickerLines } from '../game/news';
-import { TWISTS } from '../data/campaign';
+import { TWISTS, FINAL } from '../data/campaign';
 import type { Twist } from '../data/campaign';
 import { arcDeg, clamp, hashString, latLonToVec3, mulberry32 } from '../core/util';
 import { toonMaterial, inkify, setRimColor } from '../gfx/toon';
@@ -34,7 +34,7 @@ const SLIME_HDR = new THREE.Color(0.9, 2.4, 0.5);
 /** Poster HDR: the selected site ring. */
 const POSTER_HDR = new THREE.Color(3.2, 2.6, 0.6);
 
-export const globeHooks = { launchSite: (_s: MissionSite) => {}, invade: (_c: City) => {}, mothership: () => {} };
+export const globeHooks = { launchSite: (_s: MissionSite) => {}, invade: (_c: City) => {}, mothership: () => {}, ngPlus: () => {} };
 type Sel = { type: 'site' | 'city' | 'region'; id: string } | null;
 
 /** One country, pre-pathed once: a Path2D per polygon per needed wrap offset (filled separately, evenodd). */
@@ -489,6 +489,7 @@ export function renderPanel() {
   if (!sel) {
     const targets = CITIES.filter(c => regionUnlocked(regionById(c.region)) && !cityState(c.id).occupied).sort((a, b) => cityLevel(a) - cityLevel(b)).slice(0, 4);
     h = `<div><div class="eyebrow">Day ${s.day}</div><h3>Choose a target</h3><p class="sub">Slime rings with a saucer are abduction sites. Red pins are cities you can invade.</p></div>
+      ${chapterCardHTML()}
       ${dailyCardHTML()}
       <div class="g-list">${s.sites.map(siteRow).join('') || '<p class="sub">No sites right now.</p>'}</div>
       <h3 class="reach">Cities in reach</h3><div class="g-list">${targets.map(cityRow).join('')}</div>`;
@@ -526,6 +527,8 @@ function onPanelClick(e: Event) {
   else if (t.dataset.act === 'ms') globeHooks.mothership();
   else if (t.dataset.act === 'launch') { const site = G.save.sites.find(x => x.id === GL.sel?.id); if (site) globeHooks.launchSite(site); }
   else if (t.dataset.act === 'invade') { const c = cityById(GL.sel?.id); if (c) globeHooks.invade(c); }
+  else if (t.dataset.act === 'final') globeHooks.invade(FINAL.city as City);
+  else if (t.dataset.act === 'ngplus') globeHooks.ngPlus();
 }
 
 // ---------------------------------------------------------------------------------------------

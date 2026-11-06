@@ -6,7 +6,7 @@ import { regionById } from '../data/earth';
 import { onBossDown } from '../game/meta';
 import { invasionNews } from '../game/news';
 import { retryOffer } from '../ui/rewards';
-import { OCC } from '../data/campaign';
+import { OCC, FINAL } from '../data/campaign';
 import * as THREE from 'three';
 import { G } from '../game/state';
 import { camera } from '../core/engine';
@@ -24,7 +24,7 @@ import { setupInvasion, tickInvasion, separateUnits, updateWaves, deployUnit, su
 import { makePlayer, updatePlayer, updateCamera, playerHooks } from '../world/player';
 import { updateEnts } from '../world/entity';
 import { PROJ, updateLift } from '../world/combat';
-import { cityLevel, cityCaptured, invasionFailed, advanceDay, cityState } from '../game/campaign';
+import { cityLevel, cityCaptured, invasionFailed, advanceDay, cityState, chapterOf, currentChapter } from '../game/campaign';
 import { $, UI } from '../ui/dom';
 import { updateHUD, drawMinimap, renderDeployBar, setTimer } from '../ui/hud';
 import { TUT } from '../ui/tutorial';
@@ -44,7 +44,8 @@ export function startInvasion(city: City) {
   G.mode = 'invasion'; G.paused = false; G.modeTime = 0; G.cargo = { humans: 0, biomass: 0, metal: 0, mass: 0 };
   const L = cityLevel(city), units = setupInvasion(L);
   // the biggest cities (size 5) keep a boss in reserve: it rises when their HQ falls
-  G.inv.boss = city.size >= 5 ? { name: BOSS_NAMES[regionById(city.region).continent] || 'Giga-Mech' } : null;
+  const ch = chapterOf(city.id);
+  G.inv.boss = city.id === FINAL.city.id ? { name: FINAL.boss } : city.size >= 5 ? { name: ch?.boss || BOSS_NAMES[regionById(city.region).continent] || 'Giga-Mech' } : null;
   setupBattle(L);   // helicopters, jets, crowds, traffic, searchlights
   makePlayer(0, 150); G.camYaw = 0; G.camDist = innerWidth < innerHeight ? 54 : 40; camera.position.set(0, 80, 230);
   UI.show(null); UI.hud(true); $('alert').hidden = true; $('m-cargo').hidden = true; $('deploy').hidden = false; renderDeployBar();
@@ -109,7 +110,9 @@ export function endInvasion(won: boolean) {
   const from = won ? undefined : invasionScene.irisFrom();   // a defeat closes on the warping saucer
   SFX.stopLoops(); platform.gameplayStop(); G.mode = 'end'; BEAM.hide();
   if (won) cityCaptured(city); else invasionFailed(city);
-  const garrison = won ? leaveGarrison(city.id) : '';
+  const isFinal = city.id === FINAL.city.id, chDone = won ? chapterOf(city.id) : null;
+  if (won && isFinal) { s.ended = true; G.pendingEnding = true; }
+  const garrison = won && !isFinal ? leaveGarrison(city.id) : '';
   invasionNews(city.name, won);
   const report = advanceDay(); writeSave(s);
   const row = (k: string, v: string | number, cls = '') => `<dt>${k}</dt><dd class="${cls}">${v}</dd>`;
@@ -119,7 +122,9 @@ export function endInvasion(won: boolean) {
   if (garrison) html += row('Garrison left behind', garrison);
   $('end-eyebrow').textContent = `Invasion report · ${won ? 'Victory' : 'Defeat'}`;
   $('end-title').textContent = won ? `${city.name} has fallen` : `${city.name} pushed us back`;
-  $('end-lede').textContent = won ? `${city.name} now serves the Gray Empire.${report.unlocked ? ` New regions unlocked: ${report.unlocked}!` : ''} Its people's first job: a statue of Commander Zix.`
+  const next = currentChapter();
+  $('end-lede').textContent = won && isFinal ? 'The World Defense Command has fallen. Earth belongs to the Gray Empire!'
+    : won ? `${city.name} now serves the Gray Empire.${chDone ? ` Chapter ${chDone.n} complete!${next ? ` Chapter ${next.n}: ${next.name} begins.` : ' The road to the World Defense Command is open!'}` : ''}${report.unlocked ? ` New regions unlocked: ${report.unlocked}!` : ''} Its people's first job: a statue of Commander Zix.`
     : 'Your saucer warped out. Surviving units are back on the mothership, and the city is on high alert (its defense level went up by 1).';
   $('end-body').innerHTML = html; $('btn-end').textContent = 'Back to Earth';
   SFX.play(won ? 'fanfare' : 'sad');

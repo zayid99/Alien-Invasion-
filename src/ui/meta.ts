@@ -8,7 +8,9 @@ import { CITIES, regionById } from '../data/earth';
 import { ARTIFACTS } from '../core/assets';
 import { writeSave } from '../core/save';
 import { SFX } from '../core/audio';
-import { armyPower, cityLevel, cityState, earthPower, regionUnlocked } from '../game/campaign';
+import { armyPower, cityLevel, cityState, earthPower, regionUnlocked, currentChapter, finalOpen } from '../game/campaign';
+import { CHAPTERS, FINAL } from '../data/campaign';
+import { cityById } from '../data/earth';
 import {
   META, SPECIMENS, ACHIEVEMENTS, STREAK_REWARDS, specimensFound, artifactsFound, achievementsDone, canClaimDaily, claimDaily,
   streakReward, dailyDef, dailyReward, today, walletText,
@@ -72,6 +74,42 @@ export function maybeShowDailyDrop(after?: () => void) {
     closeModal();
   }, { once: true });
   return true;
+}
+
+// ---------------------------------------------------------------- chapters + ending (docs/gdd/campaign-chapters.md)
+/** Globe panel card: the current chapter's goal, the final assault, or New Game+. */
+export function chapterCardHTML() {
+  const s = G.save, ng = s.ngPlus ? ` · New Game+ ${s.ngPlus}` : '', ch = currentChapter();
+  if (ch) {
+    const cap = cityById(ch.capital), inTier = CITIES.filter(c => regionById(c.region).tier === ch.tier), taken = inTier.filter(c => cityState(c.id).occupied).length;
+    return `<div class="chapter-card"><div class="eyebrow">Chapter ${ch.n} of ${CHAPTERS.length}: ${ch.name}${ng}</div>
+      <p><b>Goal:</b> conquer <b>${cap.name}</b> and defeat the <b>${ch.boss}</b> to open the next chapter.</p>
+      <div class="row"><small>${taken}/${inTier.length} cities taken here · ${cap.name} defense ${cityLevel(cap)}</small><button class="btn small" data-city="${cap.id}">View ${cap.name}</button></div></div>`;
+  }
+  if (finalOpen()) return `<div class="chapter-card final"><div class="eyebrow">Final assault${ng}</div>
+      <p>Every capital has fallen. Only the <b>${FINAL.city.name}</b> stands, guarded by <b>${FINAL.boss}</b> (defense ${cityLevel(FINAL.city as any)}, Earth power ${earthPower(cityLevel(FINAL.city as any))}, your army ${armyPower()}).</p>
+      <div class="row"><button class="btn primary" data-act="final" id="btn-final">Launch the final assault</button></div></div>`;
+  return `<div class="chapter-card done"><div class="eyebrow">Earth is yours${ng}</div><p>Keep collecting, or start <b>New Game+</b>: keep your saucer and army, face a stronger Earth.</p>
+      <div class="row"><button class="btn slime" data-act="ngplus">New Game+</button></div></div>`;
+}
+/** The ending (after the final assault): story, numbers, credits, then New Game+ or keep playing. */
+export function showEnding(ngPlus: () => void, after?: () => void) {
+  const s = G.save, T = s.totals;
+  openModal('The End', 'Earth belongs to the Gray Empire!', `
+    <p>The World Defense Command surrenders. Within a week, every city on Earth is building statues of Commander Zix,
+    the cows have been promoted to "honorary biomass", and the High Council finally answers your messages.</p>
+    <p class="sub">"Not bad, Commander. Not bad at all. Now… have you heard of Mars?"</p>
+    <dl class="kv"><dt>Days of conquest</dt><dd>${s.day}</dd><dt>Cities conquered</dt><dd>${T.citiesTaken}</dd><dt>Things abducted</dt><dd>${T.abducted}</dd><dt>Bosses defeated</dt><dd>${s.best.bosses}</dd><dt>Best night score</dt><dd>${s.best.nightScore}</dd></dl>
+    <p class="sub credits">Made by Zayid (MD Jahid Hasan) with Claude. 3D models and sounds: Kenney and Quaternius (CC0). Music: cynicmusic (CC0). Map: Natural Earth.</p>
+    <p><b>New saucer skin unlocked: Conqueror.</b></p>
+    <div class="row" style="justify-content:center"><button class="btn" id="btn-keep">Keep playing</button><button class="btn slime" id="btn-ngplus">New Game+</button></div>`, true, after || null);
+  $('btn-keep').addEventListener('click', closeModal, { once: true });
+  $('btn-ngplus').addEventListener('click', () => { closeModal(); ngPlus(); }, { once: true });
+}
+/** A short card with lines (used on return: away tribute and counter-attacks). */
+export function showCard(eyebrow: string, title: string, body: string, after?: () => void) {
+  openModal(eyebrow, title, body + `<div class="row" style="justify-content:center;margin-top:12px"><button class="btn slime" id="btn-card-ok">OK</button></div>`, false, after || null);
+  $('btn-card-ok').addEventListener('click', closeModal, { once: true });
 }
 
 // ---------------------------------------------------------------- daily mission card (globe panel)

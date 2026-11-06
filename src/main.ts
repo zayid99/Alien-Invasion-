@@ -18,14 +18,14 @@ import { portrait } from './ui/portrait';
 import { $, UI } from './ui/dom';
 import { TUT } from './ui/tutorial';
 import { nightOffers, takeRewardedGap } from './ui/rewards';
-import { initMetaUI, maybeShowDailyDrop, nextGoalsHTML, showCatalogue, showAchievements, showHangar } from './ui/meta';
+import { initMetaUI, maybeShowDailyDrop, nextGoalsHTML, showCatalogue, showAchievements, showHangar, showEnding, showCard } from './ui/meta';
 import { META, rollDaily, checkAchievements } from './game/meta';
 import { initUFO, bankCargo, damagePlayer } from './world/player';
 import { PROJ, updateLift, abductEnt, raiseAlert } from './world/combat';
 import { updateEnts } from './world/entity';
 import { CITY_DMG, damageBuildings } from './world/cityDamage';
 import { deployUnit } from './world/invasion';
-import { refreshSites, armyPower, earthPower, cityLevel, verdict } from './game/campaign';
+import { refreshSites, armyPower, earthPower, cityLevel, verdict, startNewGamePlus } from './game/campaign';
 import { enterTitle, updateTitle } from './scenes/title';
 import { startMission, updateMission, endNight, missionHooks } from './scenes/mission';
 import { enterMothership, updateMothership, buildUnits, buyUpgrade } from './scenes/mothership';
@@ -71,6 +71,7 @@ function goGlobe() {
     { text: 'This is Earth! <b>Drag</b> to spin it. Glowing rings are abduction sites. <b>Tap one</b> (or pick it from the list).', check: () => globeSelection()?.type === 'site' },
     { text: 'Press <b>Launch night</b> to start your first real mission. This time Earth\'s army will fight back!', highlight: 'btn-launch-site', check: () => G.mode === 'mission' },
   ], () => { G.save.tutorial.done = true; rollDaily(); writeSave(G.save); refreshGlobe(); }, () => { G.save.tutorial.done = true; rollDaily(); writeSave(G.save); refreshGlobe(); });
+  else if (G.pendingEnding) { G.pendingEnding = false; checkAchievements(); showEnding(() => globeHooks.ngPlus(), () => { writeSave(G.save); refreshGlobe(); }); }
   else maybeShowDailyDrop(() => { writeSave(G.save); refreshGlobe(); });
 }
 function leaveGlobeIfOpen() {
@@ -84,6 +85,7 @@ globeHooks.invade = (c: City) => {
   if (armyPower() <= 30 && !Object.values(G.save.army).some(n => n > 0)) { UI.toast('You have no army yet. Build units on the mothership first!', 'warn', 3); SFX.play('error'); return; }
   UI.iris(() => { leaveGlobeIfOpen(); TUT.stop(); startInvasion(c); }, clickPoint());
 };
+globeHooks.ngPlus = () => { startNewGamePlus(); writeSave(G.save); UI.toast(`New Game+ ${G.save.ngPlus}: Earth is stronger. Good luck, Commander!`, 'good', 3); SFX.play('fanfare'); refreshGlobe(); };
 globeHooks.mothership = () => { if (UI.irisClosing) return; UI.iris(() => { leaveGlobeIfOpen(); TUT.stop(); enterMothership(); }, clickPoint($('btn-g-ms'))); };
 missionHooks.summary = (title, html, note, tutorial) => {
   // The mode switches now (the night is over: no more input), the screen swaps behind the iris, closing on the saucer.

@@ -58,7 +58,7 @@ function pickTip() {
   return tips[Math.floor(Math.random() * tips.length)];
 }
 function startShipTutorial() {
-  const s = G.save, top = { humans: 3, biomass: 12, metal: 8 };
+  const s = G.save, top = { humans: 3, biomass: 12, metal: 10 };
   for (const r of RES) s.res[r] = Math.max(s.res[r], top[r]);   // a starter gift so the first purchases are possible
   renderMothership();
   TUT.start('Mothership', [

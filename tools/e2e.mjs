@@ -37,6 +37,9 @@ try {
     await page.click('#btn-sum-next'); await sleep(6000);
     const next = await page.evaluate(() => window.__AI.G.mode);
     if (next !== 'mothership') errors.push(`expected the mothership after training, got "${next}"`);
+    // the mothership tutorial's first purchases must be affordable right after training
+    const can = await page.evaluate(() => ({ clone: !document.getElementById('btn-build-clone')?.disabled, beam: !document.querySelector('[data-up="beam"]')?.disabled }));
+    if (!can.clone || !can.beam) errors.push(`first purchases not affordable after training: ${JSON.stringify(can)}`);
   }
 } catch (e) { errors.push(String(e)); }
 await browser?.close(); server.kill();

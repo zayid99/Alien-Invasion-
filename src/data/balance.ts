@@ -31,17 +31,18 @@ export const STAT = {
 };
 export type UpgradeKey = 'beam' | 'shield' | 'engine' | 'ray' | 'cargo';
 export interface UpgradeDef { name: string; stat: (l: number) => string; next: (l: number) => string; costs: Cost[] }
+// Upgrade costs are 1.5x the launch numbers (Phase 1 pacing, see units.ts).
 export const UPGRADES: Record<UpgradeKey, UpgradeDef> = {
   beam:   { name: 'Tractor beam', stat: l => `Lifts ${STAT.maxLift[l]} t`, next: l => `Lift ${STAT.maxLift[l + 1]} t${l + 1 >= 2 ? ' (tanks need 8 t)' : ''}`,
-            costs: [{ metal: 6 }, { metal: 12, biomass: 4 }, { metal: 20, biomass: 8 }, { metal: 32, humans: 4 }] },
+            costs: [{ metal: 9 }, { metal: 18, biomass: 6 }, { metal: 30, biomass: 12 }, { metal: 48, humans: 6 }] },
   shield: { name: 'Shield generator', stat: l => `${STAT.maxShield[l]} shield`, next: l => `${STAT.maxShield[l + 1]} shield, faster recharge`,
-            costs: [{ metal: 6, biomass: 2 }, { metal: 12, biomass: 5 }, { metal: 20, biomass: 8 }, { metal: 30, biomass: 12 }] },
+            costs: [{ metal: 9, biomass: 3 }, { metal: 18, biomass: 8 }, { metal: 30, biomass: 12 }, { metal: 45, biomass: 18 }] },
   engine: { name: 'Ion engines', stat: l => `Speed ${STAT.speed[l]}`, next: l => `Speed ${STAT.speed[l + 1]}`,
-            costs: [{ metal: 5 }, { metal: 10 }, { metal: 16, biomass: 4 }, { metal: 24, biomass: 8 }] },
+            costs: [{ metal: 8 }, { metal: 15 }, { metal: 24, biomass: 6 }, { metal: 36, biomass: 12 }] },
   ray:    { name: 'Stun ray', stat: l => `${STAT.rayDmg[l]} power`, next: l => `${STAT.rayDmg[l + 1]} power, faster`,
-            costs: [{ metal: 6, humans: 1 }, { metal: 12, humans: 2 }, { metal: 18, humans: 4 }, { metal: 28, humans: 6 }] },
+            costs: [{ metal: 9, humans: 2 }, { metal: 18, humans: 3 }, { metal: 27, humans: 6 }, { metal: 42, humans: 9 }] },
   cargo:  { name: 'Cargo hold', stat: l => `Holds ${STAT.cargoCap[l]} t`, next: l => `Holds ${STAT.cargoCap[l + 1]} t`,
-            costs: [{ metal: 4, biomass: 2 }, { metal: 9, biomass: 4 }, { metal: 15, biomass: 8 }, { metal: 24, biomass: 12 }] },
+            costs: [{ metal: 6, biomass: 3 }, { metal: 14, biomass: 6 }, { metal: 23, biomass: 12 }, { metal: 36, biomass: 18 }] },
 };
 
 // What each abductable thing is worth, and how heavy it is (tonnes).

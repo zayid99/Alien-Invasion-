@@ -8,7 +8,8 @@ import { CFG, RES, earthForces, DEFENDER } from '../data/balance';
 import type { Wallet } from '../data/balance';
 import { UNIT_KEYS, unitPower } from '../data/units';
 import { clamp, pick, rand, hashString } from '../core/util';
-import { TWISTS, TWIST_IDS, NIGHT, LOSS } from '../data/campaign';
+import { TWISTS, TWIST_IDS, NIGHT, LOSS, OCC } from '../data/campaign';
+import { addNews } from './news';
 import type { TwistId } from '../data/campaign';
 import { today } from './meta';
 
@@ -35,10 +36,36 @@ export function verdict(us: number, them: number) {
   const r = us / them;
   return r >= 1.25 ? { cls: 'ok', text: 'Victory is likely' } : r >= 0.9 ? { cls: 'uv', text: 'An even fight' } : r >= 0.6 ? { cls: 'hot', text: 'Risky' } : { cls: 'hot', text: 'Earth would crush this army' };
 }
+/** What a conquered city pays per day: resistance lowers it, a revolt stops it (docs/gdd/occupation.md). */
+export function cityTribute(c: City): Wallet {
+  const st = cityState(c.id), k = st.revolt ? 0 : 1 - OCC.tributeLoss * (st.res || 0) / 100;
+  return { humans: Math.floor(c.size * k), biomass: Math.floor(c.size * 2 * k), metal: Math.floor(c.size * k) };
+}
 export function tribute(): Wallet {
   const w: Wallet = { humans: 0, biomass: 0, metal: 0 };
-  for (const c of occupiedCities()) { w.humans += c.size; w.biomass += c.size * 2; w.metal += c.size; }
+  for (const c of occupiedCities()) { const t = cityTribute(c); for (const r of RES) w[r] += t[r]; }
   return w;
+}
+/** Daily resistance growth; returns the cities that just revolted. */
+function growResistance(): string[] {
+  const out: string[] = [];
+  for (const c of occupiedCities()) {
+    const st = cityState(c.id); if (st.revolt) continue;
+    st.res = Math.min(100, (st.res || 0) + Math.max(1, OCC.base + c.size - OCC.perGarrison * (st.garrison || 0)));
+    if (st.res >= 100) { st.revolt = true; out.push(c.name); addNews(`Revolt in ${c.name}! Citizens chase the alien garrison into the sewers`); }
+  }
+  return out;
+}
+/** A night in a region scares its cities: resistance drops, revolts end. Returns the names calmed. */
+export function calmRegion(regionId: string): string[] {
+  const out: string[] = [];
+  for (const c of occupiedCities()) {
+    if (c.region !== regionId) continue;
+    const st = cityState(c.id), before = st.res || 0;
+    if (st.revolt) { st.revolt = false; st.res = OCC.afterRevolt; } else st.res = Math.max(0, before - OCC.nightCalm);
+    if (before > 0) out.push(c.name);
+  }
+  return out;
 }
 /** Make sure there are fresh abduction sites to choose from. */
 export function refreshSites() {
@@ -71,25 +98,27 @@ export function refreshChallenge() {
   const twist = pickTwist(((h >>> 8) % 1000) / 1000);
   s.sites.unshift({ id: `daily-${date}`, type: 'abduct', region: r.id, lat: c.lat + 2.2, lon: c.lon - 2.2, name: `Daily challenge: ${TWISTS[twist].name}`, level: missionLevel(r.id) + 1, expires: s.day + 99, twist, daily: date });
 }
-export interface DayReport { day: number; tribute: Wallet; unlocked: string | null }
+export interface DayReport { day: number; tribute: Wallet; unlocked: string | null; revolts: string[] }
 /** One day passes (after every mission). */
 export function advanceDay(share = 1): DayReport {
   const s = G.save; s.day++;
   for (const id in s.regions) s.regions[id].alert = Math.max(0, s.regions[id].alert - CFG.regionAlertDecayPerDay);
   s.awareness = Math.max(0, s.awareness - 0.5);
+  const revolts = growResistance();
   const t = tribute(); for (const r of RES) { t[r] = Math.floor(t[r] * share); s.res[r] += t[r]; s.totals[r] += t[r]; }   // share < 1: a night ended early
   const before = s.tierUnlocked; s.tierUnlocked = Math.min(4, 1 + (s.totals.citiesTaken >= 1 ? 1 : 0) + (s.totals.citiesTaken >= 3 ? 1 : 0) + (s.totals.citiesTaken >= 6 ? 1 : 0));
   refreshSites();
-  return { day: s.day, tribute: t, unlocked: s.tierUnlocked > before ? TIER_NAMES[s.tierUnlocked] : null };
+  return { day: s.day, tribute: t, unlocked: s.tierUnlocked > before ? TIER_NAMES[s.tierUnlocked] : null, revolts };
 }
 export function missionDone(site: MissionSite | null, humans: number, total: number, counts = true) {
   const s = G.save; if (counts) s.totals.missions++;
+  if (site && counts) G.lastCalmed = calmRegion(site.region);
   if (site) { regionState(site.region).alert = clamp(regionState(site.region).alert + 12 + humans * 1.5, 0, 100); s.sites = s.sites.filter(x => x.id !== site.id); }
   s.awareness = clamp(s.awareness + 0.8 + total * 0.08, 0, 100);
 }
 export function cityCaptured(c: City) {
   queueMicrotask(checkAchievements);
-  const s = G.save, st = cityState(c.id); st.occupied = true; st.since = s.day; s.totals.citiesTaken++;
+  const s = G.save, st = cityState(c.id); st.occupied = true; st.since = s.day; st.res = 0; st.revolt = false; s.totals.citiesTaken++;
   regionState(c.region).alert = clamp(regionState(c.region).alert + 40, 0, 100); s.awareness = clamp(s.awareness + 6 + c.size, 0, 100);
 }
 export function invasionFailed(c: City) { cityState(c.id).attempts++; G.save.awareness = clamp(G.save.awareness + 4, 0, 100); }

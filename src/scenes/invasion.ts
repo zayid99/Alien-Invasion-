@@ -6,6 +6,7 @@ import { regionById } from '../data/earth';
 import { onBossDown } from '../game/meta';
 import { invasionNews } from '../game/news';
 import { retryOffer } from '../ui/rewards';
+import { OCC } from '../data/campaign';
 import * as THREE from 'three';
 import { G } from '../game/state';
 import { camera } from '../core/engine';
@@ -94,18 +95,28 @@ export function updateVictory(dt: number) {
   camera.position.set(Math.sin(a) * (70 + t * 4), 30 + t * 6, Math.cos(a) * (70 + t * 4)); camera.lookAt(0, 20 + t * 2, 0);
   if (e) { e.rotation.y += dt * 0.6; e.position.y = 45 + Math.min(t, 3) * 5; e.scale.setScalar(Math.min(1, t / 1.5)); }
 }
+/** Garrison (docs/gdd/occupation.md): a share of the survivors stays to hold the city, cheapest units first. */
+function leaveGarrison(cityId: string) {
+  const army = G.save.army, total = UNIT_KEYS.reduce((a, k) => a + army[k], 0); if (!total) return '';
+  let n = Math.max(1, Math.ceil(OCC.garrisonShare * total)); const left: string[] = [];
+  for (const k of UNIT_KEYS) { const take = Math.min(n, army[k]); if (!take) continue; army[k] -= take; n -= take; left.push(`${take} ${UNIT_TYPES[k].name}${take > 1 ? 's' : ''}`); if (!n) break; }
+  const st = cityState(cityId); st.garrison = (st.garrison || 0) + Math.max(1, Math.ceil(OCC.garrisonShare * total));
+  return left.join(', ');
+}
 export function endInvasion(won: boolean) {
   if (G.mode === 'end') return;
   const I = G.inv, s = G.save, city = invasionScene.city; I.over = true;
   const from = won ? undefined : invasionScene.irisFrom();   // a defeat closes on the warping saucer
   SFX.stopLoops(); platform.gameplayStop(); G.mode = 'end'; BEAM.hide();
   if (won) cityCaptured(city); else invasionFailed(city);
+  const garrison = won ? leaveGarrison(city.id) : '';
   invasionNews(city.name, won);
   const report = advanceDay(); writeSave(s);
   const row = (k: string, v: string | number, cls = '') => `<dt>${k}</dt><dd class="${cls}">${v}</dd>`;
   const sent = Object.values(I.stats.startArmy as Record<string, number>).reduce((a, b) => a + b, 0) + I.stats.deployed;
   let html = row('Units sent into battle', sent) + row('Buildings destroyed', CITY_DMG.destroyed) + row('Units lost', I.stats.lost, I.stats.lost ? 'lost' : '') + row('Earth soldiers surrendered', I.stats.surrendered) + row('Prisoners beamed up', I.stats.humans + I.stats.vehicles);
   if (won) html += row('Daily tribute from this city', `${city.size} humans, ${city.size * 2} biomass, ${city.size} metal`, 'gain');
+  if (garrison) html += row('Garrison left behind', garrison);
   $('end-eyebrow').textContent = `Invasion report · ${won ? 'Victory' : 'Defeat'}`;
   $('end-title').textContent = won ? `${city.name} has fallen` : `${city.name} pushed us back`;
   $('end-lede').textContent = won ? `${city.name} now serves the Gray Empire.${report.unlocked ? ` New regions unlocked: ${report.unlocked}!` : ''} Its people's first job: a statue of Commander Zix.`

@@ -25,6 +25,8 @@ export const G = {
   save: newSave() as SaveData,
   /** The last night's banked and lost cargo (rewarded-ad offers on the report). */
   lastNight: null as { banked: Record<string, number>; lost: Record<string, number> } | null,
+  /** conquered cities a night just calmed (occupation) */
+  lastCalmed: [] as string[],
   world: null as THREE.Group | null,
   ents: [] as Entity[],
   obstacles: [] as Footprint[],

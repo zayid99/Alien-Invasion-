@@ -1084,3 +1084,5 @@ body.alarm::after {
 .stars.s0 { color: var(--dim); }
 dd small { color: var(--dim); font-size: .8em; }
 .newbest { display: inline-block; margin-left: 4px; padding: 2px 7px; border-radius: 999px; background: var(--slime); color: var(--ink); font: 12px/1.2 var(--font-display); }
+.resbar { display: inline-block; width: 52px; height: 8px; margin-left: 4px; vertical-align: middle; border-radius: 999px; border: 1.5px solid var(--ink); background: var(--grape-900); overflow: hidden; }
+.resbar i { display: block; height: 100%; background: linear-gradient(90deg, var(--poster), var(--tomato)); }

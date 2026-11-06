@@ -118,6 +118,7 @@ export function endNight(reason: 'dawn' | 'destroyed' | 'abort' | 'tutorial') {
     // ending a night early (pause menu) still uses up the day, but tribute is paid only for the share of the night
     // played, and it does not count as a finished night for missions or achievements (no tribute farming)
     const share = reason === 'abort' ? Math.max(0, Math.min(1, 1 - Math.max(0, G.nightT) / CFG.nightLength)) : 1;
+    G.lastCalmed = [];
     missionDone(N.site, N.stats.humans, N.stats.humans + N.stats.animals + N.stats.vehicles, reason !== 'abort');
     report = advanceDay(share); if (reason !== 'abort') onNightEnd(reason === 'dawn' && !N.hurt); nightNews(N.stats, N.regionName, reason, N.maxAlert || 0, !!N.mega);
   }
@@ -139,6 +140,8 @@ export function endNight(reason: 'dawn' | 'destroyed' | 'abort' | 'tutorial') {
   if (N.stats.artifacts) html += row('Earth artifacts found', N.stats.artifacts, 'gain');
   for (const r of RES) html += row(`${r[0].toUpperCase() + r.slice(1)} banked`, `+${N.banked[r]}`, 'gain');
   if (reason === 'destroyed' && lost.mass > 0) html += row('Cargo lost in the warp', RES.filter(r => lost[r]).map(r => `${lost[r]} ${r}`).join(', ') || '0', 'lost');
+  if (!N.tutorial && G.lastCalmed.length) html += row('Resistance calmed in', G.lastCalmed.join(', '), 'gain');
+  if (report?.revolts.length) html += row('Revolt!', `${report.revolts.join(', ')}: run a night in that region`, 'lost');
   if (report && RES.some(r => report.tribute[r])) html += row('Tribute from your cities', RES.filter(r => report.tribute[r]).map(r => `${report.tribute[r]} ${r}`).join(', '), 'gain');
   const title = reason === 'tutorial' ? 'Training complete' : reason === 'destroyed' ? 'Shield failure: emergency warp' : reason === 'abort' ? 'Mission ended early' : 'The sun rises. Night complete';
   const note = reason === 'tutorial' ? 'Next: build your first unit on the mothership.' : `${report?.unlocked ? `New regions unlocked: ${report.unlocked}! ` : ''}Day ${G.save.day} begins. Earth's awareness of aliens: ${G.save.awareness.toFixed(0)}%.`;

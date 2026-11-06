@@ -14,7 +14,7 @@ import { BIOMES } from '../data/biomes';
 import { RES } from '../data/balance';
 import type { MissionSite } from '../core/save';
 import { clearWorld } from '../world/maps/common';
-import { regionState, cityState, regionUnlocked, cityLevel, earthPower, armyPower, verdict, occupiedCities } from '../game/campaign';
+import { regionState, cityState, regionUnlocked, cityLevel, earthPower, armyPower, verdict, occupiedCities, cityTribute } from '../game/campaign';
 import { SFX } from '../core/audio';
 import { $, UI, ICON } from '../ui/dom';
 import { dailyCardHTML } from '../ui/meta';
@@ -482,7 +482,8 @@ function cityRow(c: City) {
   const L = cityLevel(c), them = earthPower(L), v = verdict(armyPower(), them);
   return `<button class="g-site" data-city="${c.id}">${badge('invade')}<span><b>${c.name}</b><small>${c.country} · defense ${L}</small></span><span class="tag def" title="Earth power · ${v.text}">${them}</span></button>`;
 }
-const occRow = (c: City) => `<button class="g-site" data-city="${c.id}">${badge('occ')}<span><b>${c.name}</b><small>Conquered</small></span><span></span></button>`;
+const resBar = (v: number) => `<span class="resbar" title="Resistance ${Math.round(v)}%"><i style="width:${Math.round(v)}%"></i></span>`;
+const occRow = (c: City) => { const st = cityState(c.id); return `<button class="g-site" data-city="${c.id}">${badge('occ')}<span><b>${c.name}</b><small>Conquered · resistance ${resBar(st.res || 0)}</small></span>${st.revolt ? '<span class="tag hot">Revolt</span>' : '<span></span>'}</button>`; };
 export function renderPanel() {
   const s = G.save, sel = GL.sel; let h = '';
   if (!sel) {
@@ -503,7 +504,9 @@ export function renderPanel() {
     const c = cityById(sel.id), st = cityState(c.id), r = regionById(c.region), open = regionUnlocked(r), L = cityLevel(c), us = armyPower(), them = earthPower(L), v = verdict(us, them);
     h = `<div><div class="eyebrow">${c.country} · ${r.name}</div><h3>${c.name}</h3>
       <p class="sub">${st.occupied ? `Under Gray Empire control since day ${st.since}. Pays tribute every day.` : open ? 'Defended by Earth\'s army: shield pylons, an HQ, tanks and soldiers.' : `Locked. Unlocks with ${TIER_NAMES[r.tier]}.`}</p></div>
-      ${st.occupied ? `<p><span class="tag ok">Conquered</span></p>` : `<dl class="kv"><dt>City size</dt><dd>${'★'.repeat(c.size)}</dd><dt>Defense level</dt><dd>${L}</dd><dt>Earth power</dt><dd>${them}</dd><dt>Your army</dt><dd>${us}</dd>${st.attempts ? `<dt>Failed attempts</dt><dd>${st.attempts}</dd>` : ''}</dl>
+      ${st.occupied ? `<p>${st.revolt ? '<span class="tag hot">Revolt! No tribute</span>' : '<span class="tag ok">Conquered</span>'}</p>
+        <dl class="kv"><dt>Resistance</dt><dd>${Math.round(st.res || 0)}% ${resBar(st.res || 0)}</dd><dt>Garrison</dt><dd>${st.garrison || 0} units</dd><dt>Tribute today</dt><dd>${(() => { const t = cityTribute(c); return RES.filter(r => t[r]).map(r => `${t[r]} ${r}`).join(', ') || 'none'; })()}</dd></dl>
+        <p class="sub">${st.revolt ? `Run an abduction night in ${r.name} to restore order.` : `Resistance grows every day. A night in ${r.name} calms it.`}</p>` : `<dl class="kv"><dt>City size</dt><dd>${'★'.repeat(c.size)}</dd><dt>Defense level</dt><dd>${L}</dd><dt>Earth power</dt><dd>${them}</dd><dt>Your army</dt><dd>${us}</dd>${st.attempts ? `<dt>Failed attempts</dt><dd>${st.attempts}</dd>` : ''}</dl>
       <p><span class="tag ${v.cls}">${v.text}</span></p>`}
       <div class="row"><button class="btn" data-act="back">Back</button>${!st.occupied && open ? `<button class="btn" data-act="ms">Mothership</button><button class="btn primary" data-act="invade" id="btn-invade-city">Invade</button>` : ''}</div>`;
   } else {

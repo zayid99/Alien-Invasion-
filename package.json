@@ -1,6 +1,6 @@
 {
   "name": "alien-invasion",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Alien Invasion: Conquer Earth. A 3D browser game. Play a gray alien commander, abduct humans, build an army, conquer Earth.",
   "type": "module",

@@ -6,7 +6,7 @@ Full Launch (ads on). Check the developer portal's current rules before you subm
 
 ## 1. Build the upload
 - `npm run build:crazygames` builds into `dist-crazygames/` (SDK on, ads off, no console cheats).
-- A ready zip of version 0.2.0 is in this folder: `alien-invasion-conquer-earth-v0.2.0-crazygames.zip`
+- A ready zip of version 0.3.0 is in this folder: `alien-invasion-conquer-earth-v0.3.0-crazygames.zip`
   (124 files, 9 MB; `index.html` at the root). Limits: 50 MB initial download (20 MB for the mobile homepage),
   250 MB / 1,500 files in total.
 

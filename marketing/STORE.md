@@ -21,7 +21,10 @@ Back on the mothership, turn your haul into an army: gray clones, hypno-brutes, 
 - Combos and the MEGA BEAM: the more you beam, the more you get
 - Earth fights back: police, soldiers, tanks and missile trucks as the alert rises
 - Build an alien army and upgrade your saucer on the mothership
-- Daily supply drops, daily missions, a specimen catalogue and 30 achievements
+- Daily supply drops, daily missions, a specimen catalogue and 31 achievements
+- Giant city bosses guard the biggest capitals, one for each continent
+- Earn 8 saucer skins, from the Moo-Saucer to the Golden Empire
+- Earth News: funny headlines that react to everything you do
 - Quick 2½-minute nights, your progress saves automatically
 - Plays with keyboard and mouse or touch
 

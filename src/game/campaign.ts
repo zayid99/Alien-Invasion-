@@ -8,7 +8,7 @@ import { CFG, RES, earthForces, DEFENDER } from '../data/balance';
 import type { Wallet } from '../data/balance';
 import { UNIT_KEYS, unitPower } from '../data/units';
 import { clamp, pick, rand, hashString } from '../core/util';
-import { TWISTS, TWIST_IDS, NIGHT, LOSS, OCC, CHAPTERS, FINAL, NGPLUS } from '../data/campaign';
+import { TWISTS, TWIST_IDS, NIGHT, LOSS, OCC, CHAPTERS, FINAL, NGPLUS, RETURN } from '../data/campaign';
 import type { Chapter } from '../data/campaign';
 import { addNews } from './news';
 import type { TwistId } from '../data/campaign';
@@ -62,6 +62,22 @@ export function startNewGamePlus() {
   s.res = { humans: FINAL.ngStart, biomass: FINAL.ngStart, metal: FINAL.ngStart };
   addNews(`Earth rebuilds its defenses. "This time we are ready," says the World Defense Command (New Game+ ${s.ngPlus})`);
   refreshSites();
+}
+// ---------------------------------------------------------------- return hooks (docs/gdd/return-hooks.md)
+export interface AwayReport { hours: number; gain: Wallet; attacked: string | null }
+/** Coming back: cities kept paying (up to 8 h), and after 2 h+ Earth counter-attacks one city. Applies it to the save. */
+export function applyAway(savedAt: number, now = Date.now()): AwayReport | null {
+  const s = G.save, hours = Math.min(RETURN.maxAwayH, Math.max(0, (now - savedAt) / 3.6e6)), cities = occupiedCities();
+  if (!s.tutorial.done || hours < RETURN.minAwayH || !cities.length) return null;
+  const t = tribute(), gain: Wallet = { humans: 0, biomass: 0, metal: 0 };
+  for (const r of RES) { gain[r] = Math.floor(t[r] * hours / RETURN.hoursPerDay); s.res[r] += gain[r]; s.totals[r] += gain[r]; }
+  let attacked: string | null = null;
+  if (hours >= RETURN.attackAfterH && cities.length >= RETURN.minCities) {
+    const c = [...cities].sort((a, b) => (cityState(a.id).garrison || 0) - (cityState(b.id).garrison || 0) || (cityState(b.id).res || 0) - (cityState(a.id).res || 0))[0];
+    const st = cityState(c.id); st.res = Math.min(100, (st.res || 0) + RETURN.attackRes); if (st.res >= 100) st.revolt = true;
+    attacked = c.name; addNews(`Earth strikes back! Resistance fighters rise in ${c.name}`);
+  }
+  return { hours, gain, attacked };
 }
 /** Daily resistance growth; returns the cities that just revolted. */
 function growResistance(): string[] {

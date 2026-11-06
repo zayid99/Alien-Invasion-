@@ -25,7 +25,7 @@ import { PROJ, updateLift, abductEnt, raiseAlert } from './world/combat';
 import { updateEnts } from './world/entity';
 import { CITY_DMG, damageBuildings } from './world/cityDamage';
 import { deployUnit } from './world/invasion';
-import { refreshSites, armyPower, earthPower, cityLevel, verdict, startNewGamePlus } from './game/campaign';
+import { refreshSites, armyPower, earthPower, cityLevel, verdict, startNewGamePlus, applyAway } from './game/campaign';
 import { enterTitle, updateTitle } from './scenes/title';
 import { startMission, updateMission, endNight, missionHooks } from './scenes/mission';
 import { enterMothership, updateMothership, buildUnits, buyUpgrade } from './scenes/mothership';
@@ -72,6 +72,13 @@ function goGlobe() {
     { text: 'Press <b>Launch night</b> to start your first real mission. This time Earth\'s army will fight back!', highlight: 'btn-launch-site', check: () => G.mode === 'mission' },
   ], () => { G.save.tutorial.done = true; rollDaily(); writeSave(G.save); refreshGlobe(); }, () => { G.save.tutorial.done = true; rollDaily(); writeSave(G.save); refreshGlobe(); });
   else if (G.pendingEnding) { G.pendingEnding = false; checkAchievements(); showEnding(() => globeHooks.ngPlus(), () => { writeSave(G.save); refreshGlobe(); }); }
+  else if (G.pendingAway) {
+    const A = G.pendingAway; G.pendingAway = null; const h = A.hours >= 1 ? `${Math.floor(A.hours)} h` : `${Math.round(A.hours * 60)} min`;
+    const gain = Object.entries(A.gain).filter(([, v]) => v).map(([k, v]) => `+${v} ${k}`).join(', ') || 'nothing yet';
+    showCard('While you were away', `${h} later…`, `<p>Your cities kept paying tribute: <b>${gain}</b>.</p>${A.attacked ? `<p><b>Earth strikes back!</b> Resistance fighters rose in <b>${A.attacked}</b>. Run a night in its region to calm it.</p>` : ''}`,
+      () => maybeShowDailyDrop(() => { writeSave(G.save); refreshGlobe(); }));
+    writeSave(G.save); refreshGlobe();
+  }
   else maybeShowDailyDrop(() => { writeSave(G.save); refreshGlobe(); });
 }
 function leaveGlobeIfOpen() {
@@ -229,7 +236,11 @@ async function boot(data?: { save?: any }) {
   // CrazyGames: new players land in gameplay immediately. No save = straight into the training night.
   const firstVisit = !s;
   if (firstVisit) { G.save = newSave(); writeSave(G.save); }
-  else { const n = META.notify; META.notify = () => {}; checkAchievements(); META.notify = n; }   // older saves: award earned ones quietly
+  else {
+    const n = META.notify; META.notify = () => {}; checkAchievements(); META.notify = n;   // older saves: award earned ones quietly
+    G.pendingAway = applyAway(G.save.savedAt);   // the world kept turning while they were away
+    if (G.pendingAway) writeSave(G.save);          // Continue reloads the save: keep what arrived
+  }
   // Loading screen (§7): the sticker meter fills with the model downloads, then the title scene is built and its
   // shaders compiled; the screen hides once that and Lilita One (or a 2.5 s timeout) are ready.
   const fill = $('load-fill');

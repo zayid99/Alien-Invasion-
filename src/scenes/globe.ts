@@ -18,6 +18,7 @@ import { regionState, cityState, regionUnlocked, cityLevel, earthPower, armyPowe
 import { SFX } from '../core/audio';
 import { $, UI, ICON } from '../ui/dom';
 import { dailyCardHTML, chapterCardHTML } from '../ui/meta';
+import { today } from '../game/meta';
 import { tickerLines } from '../game/news';
 import { TWISTS, FINAL } from '../data/campaign';
 import type { Twist } from '../data/campaign';
@@ -492,6 +493,7 @@ export function renderPanel() {
       ${chapterCardHTML()}
       ${dailyCardHTML()}
       <div class="g-list">${s.sites.map(siteRow).join('') || '<p class="sub">No sites right now.</p>'}</div>
+      ${s.challenge?.date === today() ? `<p class="sub">Daily challenge done: <span class="stars s${s.challenge.stars}" style="font-size:15px">${'★'.repeat(s.challenge.stars)}${'☆'.repeat(3 - s.challenge.stars)}</span> score ${s.challenge.score}. A new one tomorrow!</p>` : ''}
       <h3 class="reach">Cities in reach</h3><div class="g-list">${targets.map(cityRow).join('')}</div>`;
   } else if (sel.type === 'site') {
     const site = s.sites.find(x => x.id === sel.id); if (!site) { GL.sel = null; return renderPanel(); }

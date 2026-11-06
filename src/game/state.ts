@@ -29,6 +29,8 @@ export const G = {
   lastCalmed: [] as string[],
   /** the final assault was just won: show the ending on the way back to Earth */
   pendingEnding: false,
+  /** what happened while the player was away (shown on the globe once) */
+  pendingAway: null as import('./campaign').AwayReport | null,
   world: null as THREE.Group | null,
   ents: [] as Entity[],
   obstacles: [] as Footprint[],

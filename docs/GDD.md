@@ -85,7 +85,7 @@ Each region has a biome that shapes its mission maps:
 
 ## 6. Tutorial and onboarding
 
-1. **Training Night** (US Midwest farm, no army): fly, beam a cow, beam a human, send cargo, stun and beam a police officer. Each step waits until you've done it.
+1. **Training Night** (US Midwest farm, no army). New players land here straight from the loading screen (CrazyGames: gameplay immediately); the High Council's orders are the first tutorial line. Steps: fly, beam a cow, beam a human, send cargo, stun and beam a police officer. Each step waits until you've done it.
 2. **Mothership tour:** build your first Gray Clone, buy your first upgrade.
 3. **Globe tour:** pick your first real mission site.
 4. **Gradual unlocks:** invasions unlock once you have a real army. Research, rooms and genetics unlock in later updates, each with a short guided intro.
@@ -98,7 +98,7 @@ Status: ✅ in this build · 🔜 next updates · 💡 later
 ✅ Abduction night (4 biomes) · ✅ City invasion · ✅ Training night · 🔜 Stealth snatch (abduct a scientist unseen) · 🔜 Specimen hunt (rare trait human) · 🔜 Crop circles (propaganda) · 🔜 Sabotage (power plant, radar) · 🔜 Defend an occupied city · 🔜 Rescue a captured gray · 💡 Aircraft-carrier raid · 💡 Desert secret base · 💡 Antarctic lab · 💡 Boss battles · 💡 Endless survival · 💡 Daily challenge seed
 
 **Saucer gear (20)**
-✅ Tractor beam · ✅ Stun ray · ✅ Boost · ✅ Cargo teleport · ✅ Shield · 🔜 EMP pulse · 🔜 Gravity bomb · 🔜 Cloaking · 🔜 Decoy hologram · 🔜 Mind-wipe ray · 💡 Multi-beam · 💡 Magnet hook for tanks · 💡 Drone escort · 💡 Hull types (scout, hauler, warship) · 💡 Skins · 💡 Overdrive · 💡 Repair nanites · 💡 Scanner · 💡 Teleport strike · 💡 Planet cracker (endgame)
+✅ Tractor beam · ✅ Stun ray · ✅ Boost · ✅ Cargo teleport · ✅ Shield · 🔜 EMP pulse · 🔜 Gravity bomb · 🔜 Cloaking · 🔜 Decoy hologram · 🔜 Mind-wipe ray · 💡 Multi-beam · 💡 Magnet hook for tanks · 💡 Drone escort · 💡 Hull types (scout, hauler, warship) · 💡 Skins · ✅ Combos + MEGA BEAM (Phase 1) · 💡 Repair nanites · 💡 Scanner · 💡 Teleport strike · 💡 Planet cracker (endgame)
 
 **Army units (20)**
 ✅ Gray Clone · ✅ Hypno-Brute · ✅ Attack Saucer · ✅ Mega Walker · 🔜 Jetpack Gray · 🔜 Sludge Tank · 🔜 Hybrid Soldier · 🔜 Probe Drone · 🔜 Brain Bug (mind control) · 💡 Abductor Ship · 💡 Siege Tripod · 💡 Spore Pod · 💡 Psi Priest · 💡 Mech Captured (converted Earth mech) · 💡 Goo Blob · 💡 Shield Drone · 💡 Mothership Lance · 💡 Clone Swarm · 💡 Hero units ×2
@@ -107,7 +107,7 @@ Status: ✅ in this build · 🔜 next updates · 💡 later
 ✅ Police · ✅ Soldiers · ✅ Tanks · ✅ Missile trucks · ✅ AA turrets · ✅ Shield pylons · ✅ Defense HQ · 🔜 Jeeps with gunners · 🔜 Helicopters · 🔜 Fighter jets · 🔜 SWAT · 🔜 Agents in black suits · 🔜 Earth mechs · 💡 Scientists with gadgets · 💡 Radar network · 💡 Beam jammers · 💡 Navy ships · 💡 Orbital laser · 💡 Super soldier · 💡 Giant robot boss · 💡 Rival alien hunters · 💡 Conspiracy vloggers (raise awareness) · 💡 Farmers with pitchforks · 💡 Dogs that bark at saucers · 💡 Weather balloons (decoys)
 
 **Mothership and progression (20)**
-✅ Unit building · ✅ 5 upgrade tracks · ✅ War room power estimate · ✅ Autosave · 🔜 Rooms ×12 · 🔜 Research ×80 (counted as 1 system here) · 🔜 Specimen traits ×30 · 🔜 Hybrid breeding · 🔜 Crew officers · 💡 Trophy hall · 💡 Artifacts collection · 💡 Clans ×4 · 💡 Commander skills · 💡 Achievements ×60 · 💡 New Game+ · 💡 Difficulty modes · 💡 Iron-man mode · 💡 Sandbox · 💡 Statistics · 💡 Codex ("Earthpedia")
+✅ Unit building · ✅ 5 upgrade tracks · ✅ War room power estimate · ✅ Autosave · 🔜 Rooms ×12 · 🔜 Research ×80 (counted as 1 system here) · 🔜 Specimen traits ×30 · 🔜 Hybrid breeding · 🔜 Crew officers · 💡 Trophy hall · ✅ Specimen catalogue + artifacts (Phase 1) · 💡 Clans ×4 · 💡 Commander skills · ✅ Achievements ×30 (Phase 1) · ✅ Daily supply streak (Phase 1) · ✅ Daily missions (Phase 1) · 💡 New Game+ · 💡 Difficulty modes · 💡 Iron-man mode · 💡 Sandbox · 💡 Statistics · 💡 Codex ("Earthpedia")
 
 **World and globe (15)**
 ✅ Real-world 3D globe · ✅ ~25 regions · ✅ ~45 real cities · ✅ Regional alert · ✅ Global awareness · ✅ Day cycle · ✅ Mission sites · ✅ Occupation + daily tribute · ✅ Continent unlocks · 🔜 Earth research tree · 🔜 Counter-attacks · 🔜 Resistance and uprisings · 💡 Landmarks per city · 💡 Weather and seasons · 💡 Moon and Mars expansion

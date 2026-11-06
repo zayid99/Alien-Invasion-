@@ -6,6 +6,7 @@ import { renderer, renderFrame, setQuality, QUALITY, camera, scene } from './cor
 import { INPUT } from './core/input';
 import { SFX } from './core/audio';
 import { platform } from './core/platform';
+import { PLATFORM } from './config';
 import { loadSave, writeSave, newSave, eraseSave, prefs } from './core/save';
 import type { MissionSite } from './core/save';
 import { preload, allModelIds, USED, FIRST_NIGHT, instance } from './core/assets';
@@ -238,8 +239,8 @@ async function boot(data?: { save?: any }) {
   UI.beforeSwap = () => all;
 }
 
-// Handy for testing in the browser console, e.g. __AI.give(100)
-(window as any).__AI = {
+// Handy for testing in the browser console, e.g. __AI.give(100). Left out of the CrazyGames build (no console cheats).
+if (PLATFORM !== 'crazygames') (window as any).__AI = {
   USED, instance, BEAM, renderFrame, abductEnt, raiseAlert, enterTitle, G, startMission, startInvasion, enterMothership, goGlobe, endNight, deployUnit, setQuality, INPUT, PROJ, renderer, camera, TUT, bankCargo,
   give(n = 50) { for (const r of ['humans', 'biomass', 'metal'] as const) G.save.res[r] += n; writeSave(G.save); },
   simulate(sec: number, dt = 1 / 30) { for (let t = 0; t < sec; t += dt) { step(dt); INPUT.endFrame(); } },

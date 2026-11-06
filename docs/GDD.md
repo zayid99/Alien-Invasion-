@@ -1,6 +1,7 @@
 # Alien Invasion: Conquer Earth — Game Design Document
 
-Status: living document. Version 0.1 (first build). Owner: Zayid.
+Status: living document. Version 0.4 (6 November 2026, after the studio review in `docs/STUDIO_REVIEW.md`). Owner: Zayid.
+System-by-system design: `docs/gdd/systems-index.md`. Decisions: `docs/adr/`. Current sprint: `docs/stories.md`.
 
 ## 1. The pitch
 
@@ -10,7 +11,7 @@ Comedic B-movie tone: the stun ray never kills ("dead humans make terrible serva
 
 - **Platform:** browser (CrazyGames first), keyboard + mouse and touch.
 - **Business model:** free. Basic launch without ads. Full launch adds CrazyGames ads (midgame between missions, optional rewarded ads for bonuses).
-- **Target length:** a first campaign of 40-60 hours, plus replay value through clans, difficulty modes, New Game+, challenges and procedural maps. That's where 100+ hours comes from.
+- **Target length:** today a first campaign of about 6-10 hours in 4 chapters plus a final assault, then New Game+ and daily challenges. The long-term aim (40-60 hours) needs research, rooms and genetics (§4.7-4.9).
 
 ## 2. Design pillars
 
@@ -18,6 +19,12 @@ Comedic B-movie tone: the stun ray never kills ("dead humans make terrible serva
 2. **Every choice changes the world.** Where you strike, how loud you are, and what you build change how Earth responds.
 3. **Easy to start, deep to master.** A guided first night, then systems unlock one at a time over the first hours.
 4. **The whole planet.** Real continents, real cities, recognizable places, all stylized and friendly.
+
+**Anti-pillars** (what we will not do):
+- **Not a management sim.** No spreadsheet screens; any menu decision takes 3 taps or fewer. (Protects pillar 3.)
+- **No grind walls.** Never ask a player to replay an identical night just to afford progress; nothing is ever taken
+  away for good (revolts stop tribute, they never lose a city). (Protects pillars 1 and 3.)
+- **Not a killing game.** Nobody dies: stunned, surrendered, abducted, never killed. (Protects the tone.)
 
 ## 3. The three layers
 
@@ -33,7 +40,16 @@ Globe: pick a site → Mission: abduct → resources come home → Mothership: b
 
 ### Long loop
 
-Occupy cities → they pay daily tribute but build resistance → unlock new continents → Earth researches counter-tech and launches counter-attacks → final assault on Earth's World Defense Command.
+Occupy cities → they pay daily tribute but build resistance, which nights in their region calm (`gdd/occupation.md`)
+→ conquer each chapter's capital and its boss to open the next continents (`gdd/campaign-chapters.md`) → Earth
+counter-attacks while you are away (`gdd/return-hooks.md`) → final assault on Earth's World Defense Command → ending
+→ New Game+.
+
+### Night loop (v0.4)
+
+Most sites carry a twist (County Fair, Tank Depot, Quiet Night...) with a goal and a bonus; every night is graded
+0-3 stars against a personal best (`gdd/night-sites.md`). In invasions the beam throws live defenders onto pylons and
+the army can be rallied (`gdd/invasion-command.md`).
 
 ## 4. Systems
 
@@ -73,7 +89,7 @@ Cloning vats, probe lab, hypno chamber, hangar, reactor, brig, recycler, hydropo
 
 ## 5. The world map
 
-A stylized real Earth built from Natural Earth data (public domain). The world is split into about 25 game regions and about 45 real major cities, for example New York, Los Angeles, Toronto, Mexico City, São Paulo, London, Paris, Moscow, Cairo, Lagos, Dubai, Mumbai, Dhaka, Beijing, Tokyo and Sydney.
+A stylized real Earth built from Natural Earth data (public domain). The world is split into 29 game regions and 60 real major cities, each with its regional architecture and a landmark, for example New York, Los Angeles, Toronto, Mexico City, São Paulo, London, Paris, Moscow, Cairo, Lagos, Dubai, Mumbai, Dhaka, Beijing, Tokyo and Sydney.
 
 Each region has a biome that shapes its mission maps:
 - **Temperate:** farms, forests, small towns.
@@ -81,7 +97,7 @@ Each region has a biome that shapes its mission maps:
 - **Tropical:** palms, jungle edges, rice fields.
 - **Cold:** snow, pines, ice.
 
-**Unlock order:** North America first (tutorial in the US Midwest), then South America and Europe, then Africa, the Middle East and Russia, then Asia and Oceania.
+**Unlock order (chapters):** 1 North America (capital New York), 2 South America & Europe (Paris), 3 Africa, Russia & the Middle East (Cairo), 4 Asia & Oceania (Tokyo), then the Final Assault on the World Defense Command in Geneva. Each chapter opens when the previous capital falls.
 
 ## 6. Tutorial and onboarding
 
@@ -95,33 +111,37 @@ Each region has a biome that shapes its mission maps:
 Status: ✅ in this build · 🔜 next updates · 💡 later
 
 **Missions and modes (15)**
-✅ Abduction night (4 biomes) · ✅ City invasion · ✅ Training night · 🔜 Stealth snatch (abduct a scientist unseen) · 🔜 Specimen hunt (rare trait human) · 🔜 Crop circles (propaganda) · 🔜 Sabotage (power plant, radar) · 🔜 Defend an occupied city · 🔜 Rescue a captured gray · 💡 Aircraft-carrier raid · 💡 Desert secret base · 💡 Antarctic lab · 💡 Boss battles · 💡 Endless survival · 💡 Daily challenge seed
+✅ Abduction night (4 biomes) · ✅ City invasion · ✅ Training night · 🔜 Stealth snatch (abduct a scientist unseen) · 🔜 Specimen hunt (rare trait human) · 🔜 Crop circles (propaganda) · 🔜 Sabotage (power plant, radar) · 🔜 Defend an occupied city · 🔜 Rescue a captured gray · 💡 Aircraft-carrier raid · 💡 Desert secret base · 💡 Antarctic lab · ✅ Boss battles (city bosses + Project Halo) · 💡 Endless survival · ✅ Daily challenge night (v0.4)
 
 **Saucer gear (20)**
-✅ Tractor beam · ✅ Stun ray · ✅ Boost · ✅ Cargo teleport · ✅ Shield · 🔜 EMP pulse · 🔜 Gravity bomb · 🔜 Cloaking · 🔜 Decoy hologram · 🔜 Mind-wipe ray · 💡 Multi-beam · 💡 Magnet hook for tanks · 💡 Drone escort · 💡 Hull types (scout, hauler, warship) · 💡 Skins · ✅ Combos + MEGA BEAM (Phase 1) · 💡 Repair nanites · 💡 Scanner · 💡 Teleport strike · 💡 Planet cracker (endgame)
+✅ Tractor beam · ✅ Stun ray · ✅ Boost · ✅ Cargo teleport · ✅ Shield · 🔜 EMP pulse · 🔜 Gravity bomb · 🔜 Cloaking · 🔜 Decoy hologram · 🔜 Mind-wipe ray · 💡 Multi-beam · 💡 Magnet hook for tanks · 💡 Drone escort · 💡 Hull types (scout, hauler, warship) · ✅ Skins · ✅ Combos + MEGA BEAM (Phase 1) · 💡 Repair nanites · 💡 Scanner · 💡 Teleport strike · 💡 Planet cracker (endgame)
 
 **Army units (20)**
 ✅ Gray Clone · ✅ Hypno-Brute · ✅ Attack Saucer · ✅ Mega Walker · 🔜 Jetpack Gray · 🔜 Sludge Tank · 🔜 Hybrid Soldier · 🔜 Probe Drone · 🔜 Brain Bug (mind control) · 💡 Abductor Ship · 💡 Siege Tripod · 💡 Spore Pod · 💡 Psi Priest · 💡 Mech Captured (converted Earth mech) · 💡 Goo Blob · 💡 Shield Drone · 💡 Mothership Lance · 💡 Clone Swarm · 💡 Hero units ×2
 
 **Earth enemies (25)**
-✅ Police · ✅ Soldiers · ✅ Tanks · ✅ Missile trucks · ✅ AA turrets · ✅ Shield pylons · ✅ Defense HQ · 🔜 Jeeps with gunners · 🔜 Helicopters · 🔜 Fighter jets · 🔜 SWAT · 🔜 Agents in black suits · 🔜 Earth mechs · 💡 Scientists with gadgets · 💡 Radar network · 💡 Beam jammers · 💡 Navy ships · 💡 Orbital laser · 💡 Super soldier · 💡 Giant robot boss · 💡 Rival alien hunters · 💡 Conspiracy vloggers (raise awareness) · 💡 Farmers with pitchforks · 💡 Dogs that bark at saucers · 💡 Weather balloons (decoys)
+✅ Police · ✅ Soldiers · ✅ Tanks · ✅ Missile trucks · ✅ AA turrets · ✅ Shield pylons · ✅ Defense HQ · 🔜 Jeeps with gunners · ✅ Helicopters · ✅ Fighter jets · 🔜 SWAT · 🔜 Agents in black suits · 🔜 Earth mechs · 💡 Scientists with gadgets · 💡 Radar network · 💡 Beam jammers · 💡 Navy ships · 💡 Orbital laser · 💡 Super soldier · 💡 Giant robot boss · 💡 Rival alien hunters · 💡 Conspiracy vloggers (raise awareness) · 💡 Farmers with pitchforks · 💡 Dogs that bark at saucers · 💡 Weather balloons (decoys)
 
 **Mothership and progression (20)**
-✅ Unit building · ✅ 5 upgrade tracks · ✅ War room power estimate · ✅ Autosave · 🔜 Rooms ×12 · 🔜 Research ×80 (counted as 1 system here) · 🔜 Specimen traits ×30 · 🔜 Hybrid breeding · 🔜 Crew officers · 💡 Trophy hall · ✅ Specimen catalogue + artifacts (Phase 1) · 💡 Clans ×4 · 💡 Commander skills · ✅ Achievements ×30 (Phase 1) · ✅ Daily supply streak (Phase 1) · ✅ Daily missions (Phase 1) · 💡 New Game+ · 💡 Difficulty modes · 💡 Iron-man mode · 💡 Sandbox · 💡 Statistics · 💡 Codex ("Earthpedia")
+✅ Unit building · ✅ 5 upgrade tracks · ✅ War room power estimate · ✅ Autosave · 🔜 Rooms ×12 · 🔜 Research ×80 (counted as 1 system here) · 🔜 Specimen traits ×30 · 🔜 Hybrid breeding · 🔜 Crew officers · 💡 Trophy hall · ✅ Specimen catalogue + artifacts (Phase 1) · 💡 Clans ×4 · 💡 Commander skills · ✅ Achievements ×30 (Phase 1) · ✅ Daily supply streak (Phase 1) · ✅ Daily missions (Phase 1) · ✅ New Game+ (v0.4) · 💡 Difficulty modes · 💡 Iron-man mode · 💡 Sandbox · 💡 Statistics · 💡 Codex ("Earthpedia")
 
 **World and globe (15)**
-✅ Real-world 3D globe · ✅ ~25 regions · ✅ ~45 real cities · ✅ Regional alert · ✅ Global awareness · ✅ Day cycle · ✅ Mission sites · ✅ Occupation + daily tribute · ✅ Continent unlocks · 🔜 Earth research tree · 🔜 Counter-attacks · 🔜 Resistance and uprisings · 💡 Landmarks per city · 💡 Weather and seasons · 💡 Moon and Mars expansion
+✅ Real-world 3D globe · ✅ 29 regions · ✅ 60 real cities · ✅ Regional alert · ✅ Global awareness · ✅ Day cycle · ✅ Mission sites · ✅ Occupation + daily tribute · ✅ Continent unlocks · 🔜 Earth research tree · ✅ Counter-attacks (v0.4) · ✅ Resistance and revolts (v0.4) · ✅ Landmarks per city · 💡 Weather and seasons · 💡 Moon and Mars expansion
 
 **Presentation (10)**
 ✅ CC0 animated characters and vehicles · ✅ Synth + sample sound · ✅ Touch controls · ✅ Bloom lighting · 🔜 Music per region · 🔜 More voice-style barks · 💡 Day missions · 💡 Photo mode · 💡 Localization (Bengali, Spanish, ...) · 💡 Accessibility options
 
 That's 125 features. Counted the research tree, traits and achievements as one feature each.
 
+Also built, not in the original catalogue: destructible cities, 11 regional city styles, Earth News, rewarded ads and the retry offer, night twists and 3-star grades, gravity drop and rally, garrisons, away tribute.
+
 ## 8. Progression and length (target math)
 
-- Training + North America: ~6-10 h (about 25 missions, 6 cities).
-- Each later continent block: ~8-12 h. Five blocks → 40-60 h for a first campaign.
-- Replay: 4 clans × different strategies, harder difficulties, iron-man, New Game+ with Earth tech starting higher, daily challenges.
+Measured, not hoped (studio review, 6 Nov 2026):
+- Training + first invasion: ~15-20 min (first "even fight" city around night 3-4).
+- Chapter 1 (North America, capital New York): ~45-75 min. Later chapters: ~1-2 h each.
+- First campaign including the Final Assault: about 6-10 h. Replay: New Game+ (Earth +2 defense per level), daily challenges.
+- The original 40-60 h target needs the planned research, rooms and genetics systems.
 
 ## 9. CrazyGames launch plan
 
@@ -136,7 +156,8 @@ TypeScript + three.js + Vite. Content (regions, cities, units, upgrades, balance
 
 ## 11. Roadmap
 
-1. ✅ **Foundation** (this build): project, ported gameplay, globe, tutorial, CrazyGames hooks.
+1. ✅ **Foundation**: project, ported gameplay, globe, tutorial, CrazyGames hooks.
+1b. ✅ **Launch prep + v0.4 retention pass**: Phase 1/2 meta, cartoon art, city identity, studio-review fixes, night twists, invasion command, occupation, chapters and ending, return hooks.
 2. 🔜 **North America vertical slice:** research tree v1, mothership rooms v1, specimen traits, 3 new mission types, helicopters, region music.
 3. 🔜 **The world:** all continents playable, Earth research and counter-attacks, resistance.
 4. 💡 **Depth and replay:** clans, genetics, crew, bosses, New Game+, achievements.

@@ -45,6 +45,7 @@ export const INPUT = {
       b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('lostpointercapture', off);
     }
     $('t-send').addEventListener('pointerdown', () => this.pressed.add('KeyR'));
+    $('t-rally').addEventListener('pointerdown', () => this.pressed.add('KeyF'));
   },
   enableTouch() { if (this.touch) return; this.touch = true; document.body.classList.add('touch'); this.onTouchEnabled(); },
   down(c: string) { return this.keys.has(c); },

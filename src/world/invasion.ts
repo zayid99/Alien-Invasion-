@@ -20,6 +20,7 @@ import type { Weapon } from './combat';
 import { spawnHuman } from './civilians';
 import { spawnTank, smokeIfWrecked, wreckVehicle, aimNode } from './military';
 import { FLOW_CELL, PYLON_SPOTS, flowField, flowDir, blockedGrid } from './maps/city';
+import { RALLY } from '../data/campaign';
 
 export const invasionHooks = { onWin: () => {}, onDeploy: () => {}, onBoss: (_name: string) => {} };
 // Earth fire is always orange (§6): small arms HDR (4, 2.4, 0.6), cannons HDR (4, 1.6, 0.4). (PROJ.fire enforces it too.)
@@ -283,9 +284,28 @@ function findEarthTarget(e: Entity, range: number) {
   }
   return best;
 }
+/** Rally (F / RALLY button): send the army to the saucer's position (docs/gdd/invasion-command.md). */
+export function setRally() {
+  const I = G.inv, P = G.player; if (!I || I.over || !P || P.dead) return;
+  if (!G.ents.some(e => e.team === 'alien' && !e.dead && e.utype)) { UI.toast('No army to rally: drop units with 1-4', 'warn', 1.8); return; }
+  I.rally = { x: P.pos.x, z: P.pos.z, t: RALLY.time, ringT: 0 }; I.objective = null;
+  const tgt = rallyTarget(); UI.toast(tgt ? `Army: attack the ${tgt.kind === 'hq' ? 'HQ' : tgt.kind} under the saucer!` : 'Army: rally on the saucer!', 'good', 1.8); SFX.play('deploy');
+}
+function rallyTarget(): Entity {
+  const I = G.inv, R = I.rally; if (!R) return null; let best: Entity = null, bd = RALLY.radius;
+  for (const o of G.ents) {
+    if (o.team !== 'earth' || o.dead || o.hp <= 0 || !o.structure || (o.kind === 'hq' && I.pylonsLeft > 0)) continue;
+    const d = Math.hypot(o.pos.x - R.x, o.pos.z - R.z) - o.r; if (d < bd) { bd = d; best = o; }
+  }
+  return best;
+}
 export function armyObjective() {
   const I = G.inv;
-  if (I.objective && !I.objective.dead && I.objective.hp > 0) return I.objective;
+  if (I.objective && !I.objective.dead && (I.objective.hp > 0 || I.objective.rallyPoint)) return I.objective;
+  if (I.rally) {   // a rally overrides the default order (pylons nearest the army, then the HQ)
+    const t = rallyTarget(); if (t) { I.objective = t; return t; }
+    I.objective = { pos: new V3(I.rally.x, 0, I.rally.z), r: 2, hp: 1, dead: false, rallyPoint: true } as any; return I.objective;
+  }
   let best: Entity = null, bd = 1e9;
   for (const p of I.pylons) if (p.hp > 0) { const d = hdist(I.center, p.pos); if (d < bd) { bd = d; best = p; } }
   I.objective = best || (I.hq.hp > 0 ? I.hq : null);
@@ -298,12 +318,13 @@ function brainUnit(e: Entity, dt: number) {
   e.retarget -= dt;
   if (e.retarget <= 0 || !e.target || e.target.dead || e.target.hp <= 0) { e.retarget = 0.35 + rand(0, 0.25); e.target = findEarthTarget(e, T.range + 14); }
   const obj = armyObjective(); let tgt = e.target, moving = false;
-  if (!tgt && obj && hdist(e.pos, obj.pos) - obj.r <= T.range + 1) tgt = obj;
+  if (!tgt && obj && !obj.rallyPoint && hdist(e.pos, obj.pos) - obj.r <= T.range + 1) tgt = obj;
   if (tgt) {
     const d = hdist(e.pos, tgt.pos) - (tgt.structure ? tgt.r : tgt.r * 0.5), ang = Math.atan2(tgt.pos.x - e.pos.x, tgt.pos.z - e.pos.z);
     if (d > T.range * 0.92) { e.heading = angTo(e.heading, ang, 5 * dt); e.speed = damp(e.speed, T.speed, 4, dt); moving = true; }
     else { e.speed = damp(e.speed, 0, 8, dt); e.heading = angTo(e.heading, ang, 7 * dt); e.cool -= dt; if (e.cool <= 0) { e.cool = (1 / T.rate) * rand(0.9, 1.15); unitAttack(e, tgt); } }
-  } else if (obj) {
+  } else if (obj && obj.rallyPoint && hdist(e.pos, obj.pos) < 9 + T.radius * 2) e.speed = damp(e.speed, 0, 5, dt);   // gathered at the rally point
+  else if (obj) {
     if (T.air) e.heading = angTo(e.heading, Math.atan2(obj.pos.x - e.pos.x, obj.pos.z - e.pos.z), 3 * dt);
     else { flowDir(flowFor(obj), e.pos, _fd); if (_fd.lengthSq() > 0) e.heading = angTo(e.heading, Math.atan2(_fd.x, _fd.z), 6 * dt); }
     e.speed = damp(e.speed, T.speed, 3, dt); moving = true;
@@ -371,6 +392,11 @@ export function setupInvasion(L: number) {
 /** Per-frame invasion upkeep: army centre, dome + pylon visuals. */
 export function tickInvasion(dt: number) {
   const I = G.inv; let n = 0; I.center.set(0, 0, 0);
+  if (I.rally) {   // the rally ring pulses until it times out or its target falls
+    const R = I.rally; R.t -= dt; R.ringT -= dt;
+    if (R.ringT <= 0) { R.ringT = 0.6; FX.ring(_v1.set(R.x, 0.4, R.z), 9, 0.6, FXC.violet); }
+    const o = I.objective; if (R.t <= 0 || (o && !o.rallyPoint && (o.dead || o.hp <= 0))) { I.rally = null; I.objective = null; }
+  }
   for (const e of G.ents) if (e.team === 'alien' && !e.dead) { I.center.add(e.pos); n++; }
   if (n) I.center.multiplyScalar(1 / n); else I.center.copy(G.player.pos);
   const hq = I.hq, dome = hq.dome; hq.domeFlash = Math.max(0, hq.domeFlash - dt * 2); dome.material.uniforms.time.value = G.time;

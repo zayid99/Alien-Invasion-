@@ -5,6 +5,7 @@ import { FX, FT, FXC } from '../gfx/fx';
 import { SFX } from '../core/audio';
 import { UI } from '../ui/dom';
 import { RES } from '../data/balance';
+import { DROP } from '../data/campaign';
 import { V3, _v1, _v3, chance, clamp, hdist, rand } from '../core/util';
 import type { Vec3 } from '../core/util';
 import { damageEnt, say } from './entity';
@@ -130,14 +131,31 @@ export function updateLift(e: Entity, dt: number) {
     e.obj.rotation.y += dt * 1.2; e.obj.rotation.z = Math.sin(e.t * 6) * 0.22; e.obj.rotation.x = 0;   // slow spin + jelly wobble
     if (e.model) e.anim('lifted', { speed: 1.4 });
     if (HUMAN_KINDS.has(e.kind) && chance(dt * 0.6)) say(e, SAY.lifted);
-    if (e.pos.y >= P.pos.y - 1.9) abductEnt(e);
+    // invasions (docs/gdd/invasion-command.md): defenders still fighting are held under the saucer, to be dropped
+    if (G.mode === 'invasion' && e.team === 'earth' && e.hp > 0) { e.held = true; if (e.pos.y > P.pos.y - 4.5) e.pos.y = P.pos.y - 4.5; }
+    else if (e.pos.y >= P.pos.y - 1.9) abductEnt(e);
   } else {
     e.vy -= 32 * dt; e.pos.y += e.vy * dt;
     if (e.pos.y <= 0) {
       const impact = -e.vy; e.pos.y = 0; e.vy = 0; e.lift = 0; e.obj.rotation.x = 0; e.obj.rotation.z = 0; e.lane = null;
+      if (e.held) { e.held = false; if (G.mode === 'invasion' && impact > DROP.minImpact) { gravityDrop(e); return; } }
       if (impact > 9) { e.stun = Math.max(e.stun, 2.5); e.jelly = 1; e.jellyT = 0; FX.smoke(e.pos, 2, 0.8, 0.7, 0.5, false); if (HUMAN_KINDS.has(e.kind)) say(e, ['Ow!', 'My back!', 'Ouch!']); }
     }
   }
+}
+/** Gravity drop: a held defender lands hard and damages everything around it (docs/gdd/invasion-command.md). */
+function gravityDrop(e: Entity) {
+  const m = e.loot?.mass || 1, dmg = DROP.base + DROP.perTon * m; let hitStructure = false;
+  FX.explode(_v1.copy(e.pos).setY(1), 1 + m / 6); FX.word(_v3.copy(e.pos).setY(4), 'boom', 1.6); SFX.play('boom', e.pos); G.shake = Math.max(G.shake, 0.6);
+  for (const o of G.ents) {
+    if (o === e || o.team !== 'earth' || o.dead || o.hp <= 0 || hdist(o.pos, e.pos) > DROP.radius + o.r) continue;
+    if (o.structure) hitStructure = true;
+    damageEnt(o, dmg, 'player');
+  }
+  damageBuildings(e.pos.x, e.pos.z, DROP.radius, dmg * DROP.buildingShare);
+  damageEnt(e, DROP.self, 'player');
+  G.save.best.drops++;
+  FT.spawn(_v1.copy(e.pos).setY(6), hitStructure ? `GRAVITY DROP! −${Math.round(dmg)}` : 'GRAVITY DROP!', 'combo', 1.2, 3);
 }
 export function abductEnt(e: Entity) {
   const P = G.player, L = e.loot; e.dead = true; e.lift = 0;

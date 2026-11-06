@@ -19,7 +19,7 @@ import { hashString, rand } from '../core/util';
 import { Kit, sph } from '../gfx/kit';
 import { FX, BEAM } from '../gfx/fx';
 import { buildCity } from '../world/maps/city';
-import { setupInvasion, tickInvasion, separateUnits, updateWaves, deployUnit, surrenderAll, invasionHooks, armyObjective } from '../world/invasion';
+import { setupInvasion, tickInvasion, separateUnits, updateWaves, deployUnit, surrenderAll, invasionHooks, armyObjective, setRally } from '../world/invasion';
 import { makePlayer, updatePlayer, updateCamera, playerHooks } from '../world/player';
 import { updateEnts } from '../world/entity';
 import { PROJ, updateLift } from '../world/combat';
@@ -47,8 +47,8 @@ export function startInvasion(city: City) {
   setupBattle(L);   // helicopters, jets, crowds, traffic, searchlights
   makePlayer(0, 150); G.camYaw = 0; G.camDist = innerWidth < innerHeight ? 54 : 40; camera.position.set(0, 80, 230);
   UI.show(null); UI.hud(true); $('alert').hidden = true; $('m-cargo').hidden = true; $('deploy').hidden = false; renderDeployBar();
-  $('mode-label').textContent = `${city.name} · defense ${L}`; $('t-send').hidden = true;
-  UI.hint(`<kbd>WASD</kbd> fly · <kbd>click</kbd> ray · <kbd>Space</kbd> beam up soldiers + wrecks · <kbd>1</kbd>–<kbd>4</kbd> drop reinforcements`);
+  $('mode-label').textContent = `${city.name} · defense ${L}`; $('t-send').hidden = true; $('t-rally').hidden = false;
+  UI.hint(`<kbd>WASD</kbd> fly · <kbd>click</kbd> ray · <kbd>Space</kbd> grab defenders, let go to drop them · <kbd>F</kbd> rally army · <kbd>1</kbd>–<kbd>4</kbd> reinforcements`);
   UI.comm(units ? `The army has landed in ${city.name}. Destroy the three <b>shield pylons</b>, then their headquarters. I will cover you from the saucer.` : 'We have no army?! Drop units with keys 1-4 if you have resources, or retreat from the pause menu.', 7);
   SFX.setMusic('battle'); SFX.play('battle'); platform.gameplayStart(); $('game').focus({ preventScroll: true });
   playerHooks.onDown = () => { if (G.mode === 'invasion' && !G.inv.over) endInvasion(false); };   // the army may still win in the 1.6 s warp-out
@@ -59,11 +59,12 @@ export function updateInvasion(dt: number) {
   updatePlayer(dt); updateEnts(dt, updateLift); PROJ.update(dt); separateUnits(); updateWaves(dt); updateCamera(dt); updateCityDamage(dt); updateBattle(dt);
   const n = tickInvasion(dt); armyObjective();
   const B = I.bossEnt;
-  $('objective').textContent = I.pylonsLeft > 0 ? `Destroy the shield pylons: ${I.pylonsLeft} left` : I.hq.hp > 0 ? `Destroy the defense HQ: ${Math.ceil(I.hq.hp / I.hq.maxHp * 100)}% left`
+  $('objective').textContent = I.rally ? (I.objective && !I.objective.rallyPoint ? `Rally: attacking the ${I.objective.kind === 'hq' ? 'HQ' : I.objective.kind}` : 'Rally: army gathering at the saucer') : I.pylonsLeft > 0 ? `Destroy the shield pylons: ${I.pylonsLeft} left` : I.hq.hp > 0 ? `Destroy the defense HQ: ${Math.ceil(I.hq.hp / I.hq.maxHp * 100)}% left`
     : B && B.hp > 0 ? `Defeat the ${I.boss.name}: ${Math.ceil(B.hp / B.maxHp * 100)}% left` : `${invasionScene.city.name} has fallen!`;
   setTimer(`${n} unit${n === 1 ? '' : 's'}`);   // Lilita counter, one fixed-width cell per digit
   if ((I.deployT = (I.deployT || 0) - dt) <= 0) { I.deployT = 0.5; renderDeployBar(); }
   for (const k of UNIT_KEYS) if (INPUT.hit('Digit' + UNIT_TYPES[k].key)) deployUnit(k);
+  if (INPUT.hit('KeyF')) setRally();
   updateHUD(); drawMinimap();
 }
 function winInvasion() {

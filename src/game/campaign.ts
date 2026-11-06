@@ -8,7 +8,7 @@ import { CFG, RES, earthForces, DEFENDER } from '../data/balance';
 import type { Wallet } from '../data/balance';
 import { UNIT_KEYS, unitPower } from '../data/units';
 import { clamp, pick, rand, hashString } from '../core/util';
-import { TWISTS, TWIST_IDS, NIGHT } from '../data/campaign';
+import { TWISTS, TWIST_IDS, NIGHT, LOSS } from '../data/campaign';
 import type { TwistId } from '../data/campaign';
 import { today } from './meta';
 
@@ -23,7 +23,7 @@ export function missionLevel(regionId: string) {
 }
 /** Earth's defense level for a city invasion. */
 export function cityLevel(c: City) {
-  const s = G.save; return Math.max(1, c.size - 1 + Math.floor(s.day / 8) + Math.floor(s.awareness / 25) + cityState(c.id).attempts);
+  const s = G.save; return Math.max(1, c.size - 1 + Math.floor(s.day / 8) + Math.floor(s.awareness / 25) + Math.min(LOSS.maxPenalty, cityState(c.id).attempts));
 }
 const defPower = (k: keyof typeof DEFENDER) => { const d = DEFENDER[k]; return Math.round(Math.sqrt(d.hp * d.dmg * d.rate)); };
 export function earthPower(L: number) {

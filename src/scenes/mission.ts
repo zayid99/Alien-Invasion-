@@ -52,7 +52,7 @@ export function startMission(site: MissionSite | null, tutorial = false) {
   UI.show(null); UI.hud(true); $('alert').hidden = tutorial; $('m-cargo').hidden = false; $('deploy').hidden = true; $('objective').textContent = '';
   $('mode-label').textContent = tutorial ? 'Training night · US Midwest' : `Day ${G.save.day} · ${region.name}`;
   UI.hint(`<kbd>WASD</kbd> fly · hold <kbd>Space</kbd> beam · hold <kbd>click</kbd> stun ray · <kbd>Shift</kbd> boost · <kbd>R</kbd> send cargo · <kbd>Q</kbd>/<kbd>E</kbd> camera`);
-  $('t-send').hidden = false;
+  $('t-send').hidden = false; $('t-rally').hidden = true;
   SFX.setMusic('tense'); platform.gameplayStart(); $('game').focus({ preventScroll: true });
   playerHooks.onDown = () => endNight('destroyed');
   if (tutorial) startTraining();

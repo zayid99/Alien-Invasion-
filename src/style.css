@@ -258,9 +258,9 @@ body[data-mode="mission"] #pops, body[data-mode="invasion"] #pops { top: 38%; bo
 .face canvas { width: 100% !important; height: 100% !important; display: block; }
 
 /* summary + end */
-.stats { display: grid; grid-template-columns: 1fr auto; gap: 6px 18px; margin: 14px 0; font-size: 15px; align-items: baseline; }
+.stats { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, max-content); gap: 6px 18px; margin: 14px 0; font-size: 15px; align-items: baseline; }
 .stats dt { color: var(--dim); }
-.stats dd { margin: 0; text-align: right; font: 17px/1.2 var(--font-display); letter-spacing: .01em; color: #fff; font-variant-numeric: tabular-nums; }
+.stats dd { margin: 0; text-align: right; max-width: 60vw; font: 17px/1.2 var(--font-display); letter-spacing: .01em; color: #fff; font-variant-numeric: tabular-nums; }
 .stats .lost { color: var(--tomato); }
 .stats .gain { color: var(--slime); }
 #end-lede { font-size: 16px; }
@@ -1012,3 +1012,62 @@ body.alarm::after {
 @keyframes news-scroll { to { transform: translateX(-100%); } }
 @media (prefers-reduced-motion: reduce) { .g-news .tick span { animation: none; padding-left: 10px; } }
 @media (max-width: 760px) { .g-news { display: none; } }
+
+/* ================= phone UI fixes (play-test, Nov 2026) ================= */
+#deploy .u-short { display: none; }
+#mode-label, #objective { max-width: calc(100vw - 32px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 760px) {
+  #mode-label { font-size: 13px; }
+  #objective { font-size: 13px; padding: 3px 12px; }
+  /* invasion unit bar: one compact row just above the touch controls, never over the middle of the screen */
+  #deploy { top: auto; bottom: calc(var(--gut-b) + 196px); width: calc(100% - 24px); flex-wrap: nowrap; justify-content: center; gap: 6px; }
+  #deploy button { width: auto; flex: 1 1 0; max-width: 92px; padding: 6px 3px 5px; gap: 2px; }
+  #deploy .u-name { display: none; }
+  #deploy .u-short { display: block; font-size: 12.5px; }
+  #deploy button .cost { font-size: 10.5px; gap: 4px; flex-wrap: wrap; }
+  #hud:has(#deploy:not([hidden])) #comm { bottom: calc(var(--gut-b) + 262px); }
+  .stats { font-size: 14px; gap: 5px 12px; }
+  .stats dd { font-size: 15px; }
+}
+@media (max-height: 520px) {
+  #deploy .u-name { display: none; }
+  #deploy .u-short { display: block; font-size: 12px; }
+  #deploy { bottom: calc(var(--gut-b) + 8px); width: auto; }
+  #deploy button { flex: none; width: 66px; }
+  #hud:has(#deploy:not([hidden])) #comm { bottom: calc(var(--gut-b) + 86px); }
+}
+/* very short landscape phones (in-app browsers can leave ~280 px): smaller controls, radar under the meters */
+@media (max-height: 400px) {
+  #joy { width: 104px; height: 104px; bottom: calc(var(--gut-b) + 8px); }
+  #joy-knob { width: 46px; height: 46px; margin: -23px 0 0 -23px; }
+  #tbtns { gap: 8px; bottom: calc(var(--gut-b) + 8px); }
+  #tbtns button { width: 44px; height: 44px; font-size: 12px; }
+  #tbtns #t-beam { width: 76px; height: 76px; font-size: 15px; }
+  #tbtns #t-zap { width: 52px; height: 52px; font-size: 13px; }
+  #hud .meters { width: 170px; padding: 6px 8px; gap: 3px; }
+  .meter { font-size: 11px; }
+  #timer { font-size: 21px; }
+  .chip, #res .r { font-size: 14px; }
+  .chip svg.ico, #res .r svg.ico { width: 18px; height: 18px; }
+  body.touch #minimap { width: 70px; height: 70px; top: calc(var(--gut-t) + 74px); }
+  #deploy button { width: 60px; padding: 4px 2px 3px; }
+  #deploy button .cost { display: none; }
+  #toasts { top: 26%; } .toast { font-size: 17px; }
+  #banner { font-size: 40px; } #banner.alert { font-size: 26px; }
+  #comm .face { width: 44px; height: 44px; }
+  #comm p { font-size: 12.5px; }
+}
+
+/* landscape phones: keep the mode label / timer / objective in the top row (the narrow-width rule would push them
+   to a second row, under Zix's balloon), and keep the balloon small */
+@media (max-height: 520px) {
+  .hud-top { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .center-top { grid-column: 2; grid-row: 1; padding-right: 0 !important; }
+  body.touch #comm { max-width: min(330px, calc(100% - 330px)); }
+  #comm .balloon { padding: 8px 12px 9px; }
+}
+@media (max-width: 760px) and (min-height: 521px) {
+  #comm { max-width: calc(100% - 32px); }
+  #comm .balloon { padding: 9px 12px 10px; }
+  #comm p { font-size: 13.5px; }
+}

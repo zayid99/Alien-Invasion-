@@ -122,7 +122,7 @@ export function renderDeployBar() {
   UI.set('deploy', 'html', UNIT_KEYS.map(k => {
     const T = UNIT_TYPES[k], ok = canAfford(G.save.res, T.cost);
     const cost = RES.filter(r => T.cost[r]).map(r => `<span class="${r}" title="${r}">${ICON(r)}${numHTML(T.cost[r], 2)}</span>`).join('');
-    return `<button data-deploy="${k}" ${ok ? '' : 'disabled'} aria-label="${T.name} (key ${T.key})"><kbd>${T.key}</kbd><span class="u-name">${T.name}</span><span class="cost">${cost}</span></button>`;
+    return `<button data-deploy="${k}" ${ok ? '' : 'disabled'} aria-label="${T.name} (key ${T.key})"><kbd>${T.key}</kbd><span class="u-name">${T.name}</span><span class="u-short">${T.name.split(/[ -]/).pop()}</span><span class="cost">${cost}</span></button>`;
   }).join(''));
 }
 

@@ -44,7 +44,7 @@ export function startInvasion(city: City) {
   G.inv.boss = city.size >= 5 ? { name: BOSS_NAMES[regionById(city.region).continent] || 'Giga-Mech' } : null;
   makePlayer(0, 118); G.camYaw = 0; G.camDist = innerWidth < innerHeight ? 54 : 40; camera.position.set(0, 70, 190);
   UI.show(null); UI.hud(true); $('alert').hidden = true; $('m-cargo').hidden = true; $('deploy').hidden = false; renderDeployBar();
-  $('mode-label').textContent = `Invasion of ${city.name} · defense ${L}`; $('t-send').hidden = true;
+  $('mode-label').textContent = `${city.name} · defense ${L}`; $('t-send').hidden = true;
   UI.hint(`<kbd>WASD</kbd> fly · <kbd>click</kbd> ray · <kbd>Space</kbd> beam up soldiers + wrecks · <kbd>1</kbd>–<kbd>4</kbd> drop reinforcements`);
   UI.comm(units ? `The army has landed in ${city.name}. Destroy the three <b>shield pylons</b>, then their headquarters. I will cover you from the saucer.` : 'We have no army?! Drop units with keys 1-4 if you have resources, or retreat from the pause menu.', 7);
   SFX.setMusic('battle'); SFX.play('battle'); platform.gameplayStart(); $('game').focus({ preventScroll: true });

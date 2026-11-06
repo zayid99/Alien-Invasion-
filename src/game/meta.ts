@@ -7,6 +7,7 @@ import { platform } from '../core/platform';
 import { hashString } from '../core/util';
 import { ARTIFACTS } from '../core/assets';
 import { SKINS } from '../data/skins';
+import { addNews } from './news';
 
 // ---------------------------------------------------------------- specimens
 export interface Specimen { kind: string; name: string; group: 'Humans' | 'Animals' | 'Farm finds' | 'Vehicles' }
@@ -109,6 +110,13 @@ export function onCombo(n: number) {
 }
 export function onMegaBeam() { G.save.best.megas++; checkAchievements(); }
 export function onFullHold() { G.save.best.fullHolds++; checkAchievements(); }
+/** A city boss was destroyed (Phase 2): a big bonus, a headline-worthy moment, an achievement. */
+export function onBossDown(name: string) {
+  G.save.best.bosses++; addNews(`The ${name} has been turned into scrap metal. Earth's generals "need a minute"`);
+  const reward = { humans: 15, biomass: 40, metal: 60 }; give(reward);
+  META.notify({ kind: 'achievement', title: `${name} destroyed!`, text: `Boss bonus: ${walletText(reward)}` });
+  checkAchievements();
+}
 /** A night ended normally (not the tutorial). */
 export function onNightEnd(perfect: boolean) {
   if (perfect) G.save.best.perfect++;
@@ -148,6 +156,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'continental', name: 'Continental', text: 'Capture 5 cities', test: () => G.save.totals.citiesTaken >= 5 },
   { id: 'half-world', name: 'Half the World', text: 'Capture 30 cities', test: () => G.save.totals.citiesTaken >= 30 },
   { id: 'army-100', name: 'Grand Army', text: 'Have 100 units at once', test: () => armySize() >= 100 },
+  { id: 'giant-slayer', name: 'Giant Slayer', text: 'Defeat a city boss', test: () => G.save.best.bosses >= 1 },
   { id: 'maxed', name: 'Fully Loaded', text: 'Upgrade a saucer system to the max', test: () => Object.values(G.save.up).some(v => v >= 4) },
   { id: 'loyal', name: 'Loyal Commander', text: 'Claim the daily supply drop 7 days in a row', test: () => G.save.daily.streak >= 7 },
 ];

@@ -26,7 +26,7 @@ export interface SaveData {
   /** Daily supply streak + today's daily mission. Dates are the player's local YYYY-MM-DD. */
   daily: { lastClaim: string; streak: number; completed: number; mission: { id: string; date: string; progress: number; done: boolean } | null };
   /** Records for achievements: best combo, MEGA BEAMs, full holds, perfect nights. */
-  best: { combo: number; megas: number; fullHolds: number; perfect: number };
+  best: { combo: number; megas: number; fullHolds: number; perfect: number; bosses: number };
   /** Equipped saucer skin and the skins the player has already been told about. */
   skin: string; skinsSeen: string[];
   /** Recent Earth News headlines (newest first). */
@@ -46,7 +46,7 @@ export function newSave(): SaveData {
     totals: { humans: 0, biomass: 0, metal: 0, abducted: 0, unitsLost: 0, missions: 0, citiesTaken: 0, playTime: 0 },
     catalogue: {}, ach: {},
     daily: { lastClaim: '', streak: 0, completed: 0, mission: null },
-    best: { combo: 0, megas: 0, fullHolds: 0, perfect: 0 },
+    best: { combo: 0, megas: 0, fullHolds: 0, perfect: 0, bosses: 0 },
     skin: 'classic', skinsSeen: ['classic'], news: [],
   };
 }

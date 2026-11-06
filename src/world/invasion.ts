@@ -14,13 +14,13 @@ import { UI } from '../ui/dom';
 import { V3, _v1, _v2, angTo, angWrap, chance, damp, hdist, pick, rand } from '../core/util';
 import { makeEnt, stepMove, say, damageEnt, pushOut, attachToBone } from './entity';
 import type { Entity } from './entity';
-import { fireAt } from './combat';
+import { fireAt, PROJ } from './combat';
 import type { Weapon } from './combat';
 import { spawnHuman } from './civilians';
 import { spawnTank, smokeIfWrecked, wreckVehicle, aimNode } from './military';
 import { FLOW_CELL, PYLON_SPOTS, flowField, flowDir, blockedGrid } from './maps/city';
 
-export const invasionHooks = { onWin: () => {}, onDeploy: () => {} };
+export const invasionHooks = { onWin: () => {}, onDeploy: () => {}, onBoss: (_name: string) => {} };
 // Earth fire is always orange (§6): small arms HDR (4, 2.4, 0.6), cannons HDR (4, 1.6, 0.4). (PROJ.fire enforces it too.)
 const INV_RIFLE: Weapon = { range: 26, rate: 1, burst: 1, dmg: DEFENDER.soldier.dmg, speed: 90, lead: 0.6, spread: 1.0, color: FXC.pistol };
 const INV_CANNON: Weapon = { speed: 55, lead: 0.7, spread: 0.5, dmg: DEFENDER.tank.dmg, splash: 4, color: FXC.fireOrange };
@@ -66,7 +66,7 @@ function spawnHQ(hp: number) {
     }
     if (h.hp <= 0) return;
     h.hp -= dmg; if (chance(0.15)) FX.smoke(_v1.set(rand(-12, 12), rand(8, 20), rand(-12, 12)), 1, 2, 1.6, 1);
-    if (h.hp <= 0) { h.hp = 0; FX.word(_v1.set(0, 26, 0), 'hq', 3); invasionHooks.onWin(); }
+    if (h.hp <= 0) { h.hp = 0; FX.word(_v1.set(0, 26, 0), 'hq', 3); if (G.inv.boss && !G.inv.bossEnt) spawnBoss(); else if (!G.inv.boss) invasionHooks.onWin(); }
   };
   G.obstacles.push({ minX: -16, maxX: 16, minZ: -16, maxZ: 16 });
   return e;
@@ -205,6 +205,47 @@ function brainMech(e: Entity, dt: number) {
   e.cool -= dt;
   if (d < 40 && e.cool <= 0) { e.cool = 1.4; fireAt(e, new V3(e.pos.x + Math.sin(ang) * 2, 5, e.pos.z + Math.cos(ang) * 2), T, MECH_GUN, { width: 0.4, trail: 2.4, sound: 'cannon' }); }
 }
+// ---------- city bosses (Phase 2): the biggest cities send a giant war-mech when their HQ falls ----------
+export const BOSS_NAMES: Record<string, string> = {
+  'North America': 'Liberty Titan', 'South America': 'Jaguar Colossus', Europe: 'Iron Knight', Africa: 'Savanna Goliath',
+  Asia: 'Mega Shogun', 'Middle East': 'Desert Djinn', Oceania: 'Reef Kraken',
+};
+function spawnBoss() {
+  const I = G.inv, L = I.L || 1, m = instance('mech_heavy');
+  m.root.position.set(0, 0, 22); m.root.scale.multiplyScalar(3.2);
+  const hp = 1800 + 500 * L;
+  const e = makeEnt('boss', m.root, { model: m, r: 7, hh: 9, team: 'earth', hp, brain: brainBoss, mini: '#ff4a8a', miniR: 6, shadow: 10 });
+  e.zap = true; e.lootable = false; e.missT = 2.5; e.stompT = 4.5; e.heading = 0; e.anim('idle');
+  e.onDeath = bossDown; I.bossEnt = e;
+  FX.explode(_v1.set(0, 4, 22), 3); FX.smoke(_v2.set(0, 6, 22), 18, 4, 4, 6); G.shake = Math.max(G.shake, 1.2);
+  UI.banner(`BOSS!<small>The ${I.boss.name} rises from the rubble</small>`, 'alert', 2.8); SFX.play('boss');
+  UI.comm(`Earth's last defense: the <b>${I.boss.name}</b>! Keep the army on it, and shoot its missiles down with the ray.`, 6);
+}
+function brainBoss(e: Entity, dt: number) {
+  if (e.hp <= 0) return;
+  const I = G.inv, P = G.player, c = I.center, d = hdist(e.pos, c);
+  e.heading = angTo(e.heading, Math.atan2(c.x - e.pos.x, c.z - e.pos.z), 1.2 * dt);
+  if (d > 20 && e.stun <= 0) { e.speed = damp(e.speed, 3, 2, dt); stepMove(e, dt); e.anim('walk', { speed: 0.6 }); } else { e.speed = 0; e.obj.rotation.y = e.heading; e.anim('aim'); }
+  // missile salvo at the saucer: 4 homing missiles the stun ray can shoot down
+  if ((e.missT -= dt) <= 0 && P && !P.dead) {
+    e.missT = 3.6; SFX.play('cannon', e.pos);
+    for (let i = 0; i < 4; i++) {
+      const side = i % 2 ? 1 : -1;
+      PROJ.fire({ from: new V3(e.pos.x + side * 4, 24, e.pos.z), vel: new V3(side * rand(4, 9), rand(14, 20), rand(-5, 5)), team: 'earth', dmg: 9, splash: 3, life: 7, kind: 'missile', homing: P, turn: 1.5, src: e, width: 0.5 });
+    }
+  }
+  // stomp: a shockwave that hurts nearby ground units
+  if ((e.stompT -= dt) <= 0) {
+    e.stompT = 5.5; FX.explode(_v1.copy(e.pos).setY(0.5), 2.6); FX.word(_v2.copy(e.pos).setY(4), 'boom', 2); G.shake = Math.max(G.shake, 0.8);
+    for (const u of G.ents) if (u.team === 'alien' && !u.dead && !u.air && hdist(u.pos, e.pos) < 18) damageEnt(u, 55, e);
+  }
+}
+function bossDown(e: Entity) {
+  e.brain = null; e.anim('stun', { once: true }); G.inv.stats.killed++;
+  for (let i = 0; i < 5; i++) setTimeout(() => FX.explode(_v1.set(e.pos.x + rand(-6, 6), rand(4, 20), e.pos.z + rand(-6, 6)), 2.2), i * 220);
+  invasionHooks.onBoss(G.inv.boss.name); invasionHooks.onWin();
+}
+
 // ---------- your army ----------
 const hypnoBrute = (x: number, z: number) => spawnHuman(x, z, 'brute', { team: 'alien', brain: brainUnit, hp: UNIT_TYPES.brute.hp, mini: '#d2b0ff' });
 export function spawnUnit(type: UnitKey, x: number, z: number, drop = false) {
@@ -309,7 +350,7 @@ export function updateWaves(dt: number) {
 export function setupInvasion(L: number) {
   const F = earthForces(L);
   const I = G.inv = { L, F, waveT: F.waveEvery, waves: 0, flows: new Map(), over: false, objective: null as Entity, center: new V3(0, 0, 130), grid: null as any,
-    hq: null as Entity, pylons: [] as Entity[], pylonsLeft: 3, stats: { humans: 0, animals: 0, vehicles: 0, artifacts: 0, lost: 0, killed: 0, surrendered: 0, deployed: 0, startArmy: { ...G.save.army } } };
+    hq: null as Entity, pylons: [] as Entity[], pylonsLeft: 3, boss: null as { name: string } | null, bossEnt: null as Entity, stats: { humans: 0, animals: 0, vehicles: 0, artifacts: 0, lost: 0, killed: 0, surrendered: 0, deployed: 0, startArmy: { ...G.save.army } } };
   I.hq = spawnHQ(F.hqHp);
   I.pylons = PYLON_SPOTS.map(([x, z]) => spawnPylon(x, z, F.pylonHp));
   const turretSpots = [[-50, 62], [50, 62], [0, -62], [-20, 22], [20, 22], [0, -24], [-62, 50], [62, 50]];

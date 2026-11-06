@@ -1,4 +1,7 @@
 // City invasion scene: setup, per-frame update, victory cinematic and the results screen.
+import { BOSS_NAMES } from '../world/invasion';
+import { regionById } from '../data/earth';
+import { onBossDown } from '../game/meta';
 import { invasionNews } from '../game/news';
 import { retryOffer } from '../ui/rewards';
 import * as THREE from 'three';
@@ -37,6 +40,8 @@ export function startInvasion(city: City) {
   buildCity(hashString(city.id), city.size);
   G.mode = 'invasion'; G.paused = false; G.modeTime = 0; G.cargo = { humans: 0, biomass: 0, metal: 0, mass: 0 };
   const L = cityLevel(city), units = setupInvasion(L);
+  // the biggest cities (size 5) keep a boss in reserve: it rises when their HQ falls
+  G.inv.boss = city.size >= 5 ? { name: BOSS_NAMES[regionById(city.region).continent] || 'Giga-Mech' } : null;
   makePlayer(0, 118); G.camYaw = 0; G.camDist = innerWidth < innerHeight ? 54 : 40; camera.position.set(0, 70, 190);
   UI.show(null); UI.hud(true); $('alert').hidden = true; $('m-cargo').hidden = true; $('deploy').hidden = false; renderDeployBar();
   $('mode-label').textContent = `Invasion of ${city.name} · defense ${L}`; $('t-send').hidden = true;
@@ -44,13 +49,15 @@ export function startInvasion(city: City) {
   UI.comm(units ? `The army has landed in ${city.name}. Destroy the three <b>shield pylons</b>, then their headquarters. I will cover you from the saucer.` : 'We have no army?! Drop units with keys 1-4 if you have resources, or retreat from the pause menu.', 7);
   SFX.setMusic('battle'); SFX.play('battle'); platform.gameplayStart(); $('game').focus({ preventScroll: true });
   playerHooks.onDown = () => endInvasion(false);
-  invasionHooks.onWin = winInvasion; invasionHooks.onDeploy = renderDeployBar;
+  invasionHooks.onWin = winInvasion; invasionHooks.onDeploy = renderDeployBar; invasionHooks.onBoss = onBossDown;
 }
 export function updateInvasion(dt: number) {
   const I = G.inv;
   updatePlayer(dt); updateEnts(dt, updateLift); PROJ.update(dt); separateUnits(); updateWaves(dt); updateCamera(dt);
   const n = tickInvasion(dt); armyObjective();
-  $('objective').textContent = I.pylonsLeft > 0 ? `Destroy the shield pylons: ${I.pylonsLeft} left` : I.hq.hp > 0 ? `Destroy the defense HQ: ${Math.ceil(I.hq.hp / I.hq.maxHp * 100)}% left` : `${invasionScene.city.name} has fallen!`;
+  const B = I.bossEnt;
+  $('objective').textContent = I.pylonsLeft > 0 ? `Destroy the shield pylons: ${I.pylonsLeft} left` : I.hq.hp > 0 ? `Destroy the defense HQ: ${Math.ceil(I.hq.hp / I.hq.maxHp * 100)}% left`
+    : B && B.hp > 0 ? `Defeat the ${I.boss.name}: ${Math.ceil(B.hp / B.maxHp * 100)}% left` : `${invasionScene.city.name} has fallen!`;
   setTimer(`${n} unit${n === 1 ? '' : 's'}`);   // Lilita counter, one fixed-width cell per digit
   if ((I.deployT = (I.deployT || 0) - dt) <= 0) { I.deployT = 0.5; renderDeployBar(); }
   for (const k of UNIT_KEYS) if (INPUT.hit('Digit' + UNIT_TYPES[k].key)) deployUnit(k);

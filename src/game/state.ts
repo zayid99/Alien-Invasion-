@@ -10,12 +10,14 @@ export type Mode = 'boot' | 'title' | 'briefing' | 'globe' | 'mission' | 'summar
 export interface Cargo { humans: number; biomass: number; metal: number; mass: number }
 export interface NightState {
   number: number; level: number; site: MissionSite | null; tutorial: boolean;
-  stats: { humans: number; animals: number; vehicles: number; artifacts: number; disabled?: number };
+  stats: { humans: number; animals: number; vehicles: number; artifacts: number; disabled?: number; kinds: Record<string, number> };
   banked: { humans: number; biomass: number; metal: number };
   spawnT: number; civT: number; hiding: number; quietT: number; ended: boolean; warned?: boolean; noMilitary: boolean;
   biome: string; regionName: string;
   /** Phase 1 meta: current combo and when it last grew, plus 'filled the hold' / 'took damage' flags for achievements. */
   combo?: number; comboT?: number; fullHold?: boolean; hurt?: boolean; maxAlert?: number; mega?: boolean;
+  /** v0.4 night twist, objective refresh timer and the end-of-night grade */
+  twist?: import('../data/campaign').Twist | null; objT?: number; grade?: { score: number; stars: number; met: boolean | null };
 }
 
 export const G = {

@@ -19,6 +19,8 @@ import { SFX } from '../core/audio';
 import { $, UI, ICON } from '../ui/dom';
 import { dailyCardHTML } from '../ui/meta';
 import { tickerLines } from '../game/news';
+import { TWISTS } from '../data/campaign';
+import type { Twist } from '../data/campaign';
 import { arcDeg, clamp, hashString, latLonToVec3, mulberry32 } from '../core/util';
 import { toonMaterial, inkify, setRimColor } from '../gfx/toon';
 import { PAL, SKY } from '../gfx/palette';
@@ -473,7 +475,9 @@ const GLYPH = {
   occ: svg('<path d="M5 2.5h2.2v19H5z"/><path d="M8 3.5c3.5-1.6 6 1.6 11 0v9c-5 1.6-7.5-1.6-11 0z"/>'),
 };
 const badge = (k: keyof typeof GLYPH) => `<span class="badge ${k}">${GLYPH[k]}</span>`;
-const siteRow = (s: MissionSite) => `<button class="g-site" data-site="${s.id}">${badge('abduct')}<span><b>${s.name}</b><small>${regionById(s.region).name} · ${BIOMES[regionById(s.region).biome].name} · threat ${s.level}</small></span><span class="tag dur" title="Days left">${s.expires - G.save.day + 1}d</span></button>`;
+const siteRow = (s: MissionSite) => `<button class="g-site${s.daily ? ' daily' : ''}" data-site="${s.id}">${badge('abduct')}<span><b>${s.name}</b><small>${regionById(s.region).name} · ${BIOMES[regionById(s.region).biome].name} · threat ${s.level}</small></span>${s.daily ? '<span class="tag twist" title="Daily challenge">Today</span>' : s.twist ? `<span class="tag twist" title="${TWISTS[s.twist].blurb}">★</span>` : `<span class="tag dur" title="Days left">${s.expires - G.save.day + 1}d</span>`}</button>`;
+const twistGoal = (t: Twist) => t.goal.kind === 'alert' ? 'End the night with alert 1 or lower' : `Abduct ${t.goal.n} ${t.goal.label}`;
+const bonusTxt = (c: Record<string, number>) => Object.entries(c).filter(([, v]) => v).map(([k, v]) => `+${v} ${k}`).join(', ');
 function cityRow(c: City) {
   const L = cityLevel(c), them = earthPower(L), v = verdict(armyPower(), them);
   return `<button class="g-site" data-city="${c.id}">${badge('invade')}<span><b>${c.name}</b><small>${c.country} · defense ${L}</small></span><span class="tag def" title="Earth power · ${v.text}">${them}</span></button>`;
@@ -490,8 +494,10 @@ export function renderPanel() {
   } else if (sel.type === 'site') {
     const site = s.sites.find(x => x.id === sel.id); if (!site) { GL.sel = null; return renderPanel(); }
     const r = regionById(site.region), B = BIOMES[r.biome];
-    h = `<div><div class="eyebrow">Abduction site · ${r.name}</div><h3>${site.name}</h3><p class="sub">${B.name} at night. Farms, a small town and an army base nearby.</p></div>
-      <dl class="kv"><dt>Threat level</dt><dd>${site.level}</dd><dt>Regional alert</dt><dd>${Math.round(regionState(r.id).alert)}%</dd><dt>Animals here</dt><dd>${[...new Set(B.farm)].join(', ')}</dd><dt>Site expires</dt><dd>${site.expires - s.day + 1} day(s)</dd></dl>
+    const T = site.twist ? TWISTS[site.twist] : null;
+    h = `<div><div class="eyebrow">${site.daily ? 'Daily challenge' : 'Abduction site'} · ${r.name}</div><h3>${site.name}</h3><p class="sub">${T ? T.blurb : `${B.name} at night. Farms, a small town and an army base nearby.`}</p></div>
+      ${T ? `<div class="twist-card"><b>Goal:</b> ${twistGoal(T)}<br><b>Bonus:</b> ${bonusTxt(T.bonus as Record<string, number>)}${site.daily ? '<br><small>One try today. Your score and stars are kept as today\'s best.</small>' : ''}</div>` : ''}
+      <dl class="kv"><dt>Threat level</dt><dd>${site.level}</dd><dt>Regional alert</dt><dd>${Math.round(regionState(r.id).alert)}%</dd><dt>Animals here</dt><dd>${[...new Set(B.farm)].join(', ')}</dd>${site.daily ? '' : `<dt>Site expires</dt><dd>${site.expires - s.day + 1} day(s)</dd>`}<dt>Best night score</dt><dd>${s.best.nightScore}</dd></dl>
       <div class="row"><button class="btn" data-act="back">Back</button><button class="btn slime" data-act="launch" id="btn-launch-site">Launch night</button></div>`;
   } else if (sel.type === 'city') {
     const c = cityById(sel.id), st = cityState(c.id), r = regionById(c.region), open = regionUnlocked(r), L = cityLevel(c), us = armyPower(), them = earthPower(L), v = verdict(us, them);

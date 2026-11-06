@@ -156,7 +156,7 @@ export function abductEnt(e: Entity) {
   SFX.play('abduct', null, 0.05); P.pulse = 1;
   const stats = G.mode === 'invasion' ? G.inv.stats : G.night.stats;
   const cat = HUMAN_KINDS.has(e.kind) ? 'humans' : ANIMAL_KINDS.has(e.kind) ? 'animals' : e.artifact ? 'artifacts' : 'vehicles';
-  stats[cat] = (stats[cat] || 0) + 1;
+  stats[cat] = (stats[cat] || 0) + 1; const kinds = (stats.kinds ||= {}); kinds[e.kind] = (kinds[e.kind] || 0) + 1;   // twist goals count kinds
   G.save.totals.abducted++;
   if (e.artifact) G.save.artifacts[e.artifact] = (G.save.artifacts[e.artifact] || 0) + 1;
   if (G.mode === 'mission') raiseAlert(HUMAN_KINDS.has(e.kind) ? (e.team === 'earth' ? 7 : 5) : cat === 'animals' ? 2.5 : cat === 'artifacts' ? 0 : 5);

@@ -28,6 +28,8 @@ import { leaveGlobe } from './globe';
 import { BRIEF } from './title';
 import { onNightEnd } from '../game/meta';
 import { nightNews } from '../game/news';
+import { TWISTS, nightScore, nightStars, nightTarget } from '../data/campaign';
+import type { Twist } from '../data/campaign';
 
 export const missionHooks = { summary: (_title: string, _html: string, _note: string, _tutorial: boolean) => {} };
 let marker: THREE.Mesh = null;
@@ -35,11 +37,12 @@ let marker: THREE.Mesh = null;
 export function startMission(site: MissionSite | null, tutorial = false) {
   leaveGlobe(); TUT.leaveScene(); UI.clearGlobe();   // §7 scene hygiene: no globe UI, labels or Earth tutorial in a mission
   const region = regionById(site ? site.region : 'us-midwest'), level = site ? site.level : 1;
-  buildCountryside({ biome: region.biome, seed: site ? hashString(site.id) : CFG.tutorialSeed, level, tutorial });
+  const twist: Twist | null = !tutorial && site?.twist ? TWISTS[site.twist] : null;
+  buildCountryside({ biome: region.biome, seed: site ? hashString(site.daily ? 'challenge-' + site.daily : site.id) : CFG.tutorialSeed, level, tutorial, twist: twist?.id });
   G.mode = 'mission'; G.paused = false; G.modeTime = 0; G.nightT = CFG.nightLength;
   G.alert = tutorial ? 0 : Math.min(35, regionState(region.id).alert * 0.5);
   G.cargo = { humans: 0, biomass: 0, metal: 0, mass: 0 };
-  G.night = { number: G.save.totals.missions + 1, level, site, tutorial, stats: { humans: 0, animals: 0, vehicles: 0, artifacts: 0 }, banked: { humans: 0, biomass: 0, metal: 0 },
+  G.night = { number: G.save.totals.missions + 1, level, site, tutorial, twist, stats: { humans: 0, animals: 0, vehicles: 0, artifacts: 0, kinds: {} as Record<string, number> }, banked: { humans: 0, biomass: 0, metal: 0 },
     spawnT: 2, civT: 3, hiding: 0, quietT: 0, ended: false, noMilitary: tutorial, biome: region.biome, regionName: region.name };
   const P = makePlayer(-40, 40); P.invulnerable = tutorial; G.camYaw = 0.35; G.camDist = innerWidth < innerHeight ? 52 : 36;
   camera.position.set(-40, 60, 90);
@@ -53,9 +56,19 @@ export function startMission(site: MissionSite | null, tutorial = false) {
   SFX.setMusic('tense'); platform.gameplayStart(); $('game').focus({ preventScroll: true });
   playerHooks.onDown = () => endNight('destroyed');
   if (tutorial) startTraining();
+  else if (twist) UI.comm(`<b>${twist.name}!</b> ${twist.blurb} Goal: ${twistGoalText(twist)} for a bonus.`, 6);
   else UI.comm(G.save.totals.missions < 3 ? `Welcome to ${BIOMES[region.biome].name.toLowerCase()} country. Cows give biomass, cars give metal, humans are humans. Send cargo up before your shield breaks!`
     : pick(['Earth\'s army is waking up, Commander.', 'Try the army base this time: soldiers make strong recruits.', 'Look for Earth artifacts. The Council loves pizza.']), 6);
 }
+/** Twist goal progress (docs/gdd/night-sites.md): [current, target, met]. */
+export function twistProgress(t: Twist, N = G.night): [number, number, boolean] {
+  const st = N.stats, g = t.goal;
+  if (g.kind === 'alert') { const a = N.maxAlert || 0; return [a, g.n, a <= g.n]; }
+  const v = g.kind === 'scientist' || g.kind === 'tank' ? st.kinds[g.kind] || 0 : st[g.kind] || 0;
+  return [v, g.n, v >= g.n];
+}
+const twistGoalText = (t: Twist) => t.goal.kind === 'alert' ? 'end the night with alert 1 or lower' : `abduct ${t.goal.n} ${t.goal.label}`;
+const costTxt = (c: Record<string, number>) => Object.entries(c).filter(([, v]) => v).map(([k, v]) => `+${v} ${k}`).join(', ');
 function nearest(kind: string) { const P = G.player; let best: Entity = null, bd = 1e9; for (const e of G.ents) if (e.kind === kind && !e.dead) { const d = hdist(e.pos, P.pos); if (d < bd) { bd = d; best = e; } } return best; }
 function target(e: Entity) { for (const o of G.ents) o.tutTarget = false; if (e) e.tutTarget = true; }
 function startTraining() {
@@ -86,6 +99,10 @@ export function updateMission(dt: number) {
   marker.visible = !!t; if (t) marker.position.set(t.pos.x, t.pos.y + t.hh * 2 + 2.6 + Math.sin(G.time * 5) * 0.5, t.pos.z);
   if (!N.tutorial && G.nightT <= 20 && !N.warned) { N.warned = true; UI.toast('Dawn in 20 seconds! Send your cargo', 'warn', 3); }
   if (!N.tutorial && G.nightT <= 0 && !N.ended) endNight('dawn');
+  if (N.twist && (N.objT = (N.objT || 0) - dt) <= 0) {   // twist goal progress line
+    N.objT = 0.25; const [v, n, met] = twistProgress(N.twist);
+    $('objective').textContent = N.twist.goal.kind === 'alert' ? `${N.twist.name}: keep the alert at ${n} or lower (now ${v})${met ? '' : ' ✗'}` : `${N.twist.name}: ${N.twist.goal.label} ${Math.min(v, n)}/${n}${met ? ' ✔' : ''}`;
+  }
   updateHUD(); drawMinimap();
 }
 export function endNight(reason: 'dawn' | 'destroyed' | 'abort' | 'tutorial') {
@@ -105,7 +122,20 @@ export function endNight(reason: 'dawn' | 'destroyed' | 'abort' | 'tutorial') {
     report = advanceDay(share); if (reason !== 'abort') onNightEnd(reason === 'dawn' && !N.hurt); nightNews(N.stats, N.regionName, reason, N.maxAlert || 0, !!N.mega);
   }
   const row = (k: string, v: string | number, cls = '') => `<dt>${k}</dt><dd class="${cls}">${v}</dd>`;
-  let html = row('Humans abducted', N.stats.humans) + row('Animals abducted', N.stats.animals) + row('Vehicles abducted', N.stats.vehicles);
+  // grade + twist bonus (docs/gdd/night-sites.md)
+  let grade = '';
+  if (!N.tutorial) {
+    const tw = N.twist ? twistProgress(N.twist) : null, met = tw ? tw[2] && reason !== 'destroyed' : null;
+    if (met) for (const [r, v] of Object.entries(N.twist.bonus)) { G.save.res[r] += v; G.save.totals[r] += v; }
+    const score = nightScore(N.banked), stars = nightStars(score, N.level, met, reason), B = G.save.best, newBest = score > B.nightScore && reason !== 'abort';
+    if (newBest) B.nightScore = score; if (stars === 3) B.stars3++;
+    if (N.site?.daily) G.save.challenge = { date: N.site.daily, score, stars };
+    N.grade = { score, stars, met };
+    grade = row('Grade', `<span class="stars s${stars}">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</span>`, 'grade')
+      + row('Score', `${score} <small>(target ${nightTarget(N.level)} · best ${B.nightScore})</small>${newBest ? ' <b class="newbest">New best!</b>' : ''}`)
+      + (N.twist ? row(N.twist.name, met ? `goal done: ${costTxt(N.twist.bonus as Record<string, number>)}` : `goal missed (${twistGoalText(N.twist)})`, met ? 'gain' : '') : '');
+  }
+  let html = grade + row('Humans abducted', N.stats.humans) + row('Animals abducted', N.stats.animals) + row('Vehicles abducted', N.stats.vehicles);
   if (N.stats.artifacts) html += row('Earth artifacts found', N.stats.artifacts, 'gain');
   for (const r of RES) html += row(`${r[0].toUpperCase() + r.slice(1)} banked`, `+${N.banked[r]}`, 'gain');
   if (reason === 'destroyed' && lost.mass > 0) html += row('Cargo lost in the warp', RES.filter(r => lost[r]).map(r => `${lost[r]} ${r}`).join(', ') || '0', 'lost');

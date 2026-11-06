@@ -7,7 +7,10 @@ import type { MissionSite } from '../core/save';
 import { CFG, RES, earthForces, DEFENDER } from '../data/balance';
 import type { Wallet } from '../data/balance';
 import { UNIT_KEYS, unitPower } from '../data/units';
-import { clamp, pick, rand } from '../core/util';
+import { clamp, pick, rand, hashString } from '../core/util';
+import { TWISTS, TWIST_IDS, NIGHT } from '../data/campaign';
+import type { TwistId } from '../data/campaign';
+import { today } from './meta';
 
 export const regionState = (id: string) => (G.save.regions[id] ||= { alert: 0 });
 export const cityState = (id: string) => (G.save.cities[id] ||= { occupied: false, attempts: 0 });
@@ -47,8 +50,26 @@ export function refreshSites() {
     const dx = r.lon - c.lon, dy = r.lat - c.lat, l = Math.hypot(dx, dy) || 1, k = rand(1.5, 4);
     const lat = clamp(c.lat + dy / l * k + rand(-1, 1), -70, 75), lon = c.lon + dx / l * k + rand(-1, 1);
     const flavor = pick(['Farms outside', 'Countryside near', 'Villages near', 'Ranches near', 'Back roads near']);
-    s.sites.push({ id: `s${s.day}-${Math.floor(rand(0, 1e6))}`, type: 'abduct', region: r.id, lat, lon, name: `${flavor} ${c.name}`, level: missionLevel(r.id), expires: s.day + 3 });
+    // night twists (docs/gdd/night-sites.md): from the 3rd night most sites carry one
+    const twist = s.totals.missions + 1 >= NIGHT.twistFromNight && Math.random() < NIGHT.twistChance ? pickTwist(Math.random()) : undefined;
+    s.sites.push({ id: `s${s.day}-${Math.floor(rand(0, 1e6))}`, type: 'abduct', region: r.id, lat, lon, name: twist ? `${TWISTS[twist].name} near ${c.name}` : `${flavor} ${c.name}`, level: missionLevel(r.id), expires: s.day + 3, twist });
   }
+  refreshChallenge();
+}
+/** A twist the player can do (a Tank Depot needs a beam that lifts tanks); r in [0, 1). */
+export function pickTwist(r: number): TwistId {
+  const ok = TWIST_IDS.filter(id => !TWISTS[id].allowed || TWISTS[id].allowed(G.save));
+  return ok[Math.floor(r * ok.length) % ok.length];
+}
+/** The daily challenge (docs/gdd/return-hooks.md): one seeded site per local date, playable once. */
+export function refreshChallenge() {
+  const s = G.save, date = today();
+  s.sites = s.sites.filter(x => !x.daily || x.daily === date);
+  if (!s.tutorial.done || s.sites.some(x => x.daily === date) || s.challenge?.date === date) return;
+  const h = hashString('challenge-' + date), open = REGIONS.filter(regionUnlocked), r = open[h % open.length];
+  const c = CITIES.filter(x => x.region === r.id)[(h >>> 4) % CITIES.filter(x => x.region === r.id).length];
+  const twist = pickTwist(((h >>> 8) % 1000) / 1000);
+  s.sites.unshift({ id: `daily-${date}`, type: 'abduct', region: r.id, lat: c.lat + 2.2, lon: c.lon - 2.2, name: `Daily challenge: ${TWISTS[twist].name}`, level: missionLevel(r.id) + 1, expires: s.day + 99, twist, daily: date });
 }
 export interface DayReport { day: number; tribute: Wallet; unlocked: string | null }
 /** One day passes (after every mission). */

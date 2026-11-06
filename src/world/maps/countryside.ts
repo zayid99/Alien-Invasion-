@@ -18,6 +18,8 @@ import type { Pen } from '../civilians';
 import { spawnTank, brainGuard, WEAPON } from '../military';
 import { instance } from '../../core/assets';
 import { pushOut } from '../entity';
+import { NIGHT } from '../../data/campaign';
+import type { TwistId } from '../../data/campaign';
 
 const ROAD_Z = 0, ROAD_X = 30;
 const PENS: Record<string, Pen> = {
@@ -26,7 +28,7 @@ const PENS: Record<string, Pen> = {
 };
 const BASE = { minX: 96, maxX: 166, minZ: 82, maxZ: 162 };
 const BASE_FENCE = '#8a90b8';   // steel fence round the army base (farm fences are wooden PAL.fence)
-export interface CountryOpts { biome: Biome; seed: number; level: number; tutorial?: boolean; title?: boolean }
+export interface CountryOpts { biome: Biome; seed: number; level: number; tutorial?: boolean; title?: boolean; twist?: TwistId }
 
 export function buildCountryside(o: CountryOpts) {
   clearWorld();
@@ -127,15 +129,16 @@ export function buildCountryside(o: CountryOpts) {
   G.entries = [{ x: -half + 6, z: ROAD_Z }, { x: half - 6, z: ROAD_Z }, { x: ROAD_X, z: -half + 6 }, { x: ROAD_X, z: half - 6 }, { x: 100, z: 100 }];
   G.houses = houses;
   const busy = o.title ? 0.6 : o.tutorial ? 0.5 : 1;
-  const townN = Math.round((24 + Math.min(10, o.level * 2)) * busy);
+  const townN = Math.round((24 + Math.min(10, o.level * 2)) * busy * (o.twist === 'market' ? NIGHT.marketCrowd : 1));
   for (let i = 0; i < townN; i++) {
     const h = pick(houses.slice(0, -3)), e = spawnHuman(h.x + rand(-8, 8), h.z + rand(-8, 8), 'civ', { home: chance(0.35) ? h : null });
     e.anchor = h.clone(); pushOut(e.pos, 0.6);
   }
-  for (let i = 0; i < (o.tutorial ? 0 : 2); i++) { const s = spawnHuman(56 + rand(-10, 10), 27 + rand(-12, 12), 'scientist'); s.anchor = new V3(56, 0, 27); pushOut(s.pos, 0.6); }
+  for (let i = 0; i < (o.tutorial ? 0 : o.twist === 'expo' ? NIGHT.expoScientists : 2); i++) { const s = spawnHuman(56 + rand(-10, 10), 27 + rand(-12, 12), 'scientist'); s.anchor = new V3(56, 0, 27); pushOut(s.pos, 0.6); }
   for (const [x, z] of [[-96, -68], [-100, 88], [108, -70], [-80, 70], [-120, -40], [118, -120]]) for (let i = 0; i < 2; i++) { const e = spawnHuman(x + rand(-6, 6), z + rand(-6, 6), 'farmer'); e.anchor = new V3(x, 0, z); }
   const animals = B.farm, fill = (pen: Pen, n: number) => { for (let i = 0; i < n; i++) spawnAnimal(pick(animals), rand(pen.minX, pen.maxX), rand(pen.minZ, pen.maxZ), pen); };
-  fill(PENS.A, 11); fill(PENS.B, 9); fill(PENS.P, 12); fill(PENS.C, 11);
+  const herd = o.twist === 'fair' ? NIGHT.fairAnimals : 1;
+  fill(PENS.A, 11 * herd); fill(PENS.B, 9 * herd); fill(PENS.P, 12 * herd); fill(PENS.C, 11 * herd);
   if (o.tutorial) { for (let i = 0; i < 3; i++) spawnAnimal('cow', rand(-60, -50), rand(30, 40), { minX: -66, maxX: -44, minZ: 26, maxZ: 46 }); }
   const wildPen = { minX: -half + 20, maxX: half - 20, minZ: -half + 20, maxZ: half - 20 };
   for (let i = 0; i < 6; i++) spawnAnimal(pick(B.wild), pick([-1, 1]) * rand(110, 160), rand(-150, 150), wildPen);
@@ -144,13 +147,15 @@ export function buildCountryside(o: CountryOpts) {
   for (const [bx, bz] of [[-122, -72], [-128, 108], [140, -78]]) for (let i = 0; i < 5; i++) spawnHaybale(bx + rand(-9, 9), bz + rand(4, 9));
   if (o.biome === 'temperate' || o.biome === 'tropical') for (let i = 0; i < 6; i++) spawnProp('pumpkin', instance(pick(['pumpkin', 'watermelon'])).root, rand(-56, -6), rand(32, 80), { r: 0.6, hh: 0.4, shadow: 1.2 });
   if (!o.title) for (let i = 0; i < (o.tutorial ? 0 : 3); i++) { const h = pick(houses); spawnArtifact(pick(ARTIFACTS), h.x + rand(-6, 6), h.z + rand(4, 8)); }
-  lanes.forEach(ln => { for (let i = 0; i < Math.round(4 * busy); i++) spawnVehicle('car', pick(CAR_MODELS), ln, i * ln.len / 4 + rand(0, 30), { lootKind: 'car' }); });
+  const cars = Math.round(4 * busy * (o.twist === 'rush' ? NIGHT.rushTraffic : 1));
+  lanes.forEach(ln => { for (let i = 0; i < cars; i++) spawnVehicle('car', pick(CAR_MODELS), ln, i * ln.len / cars + rand(0, 30 / (cars / 4)), { lootKind: 'car' }); });
   for (const [x0, z0, x1, z1] of [[-150, -110, -70, -110], [-50, 50, -10, 50], [-50, 120, -10, 120]]) {
     const a = lane(x0, z0, x1, z1, false), b = lane(x1, z1, x0, z0, false); a.next = b; b.next = a;
     spawnVehicle('tractor', 'tractor', a, rand(0, a.len), { cruise: 3.5 });
   }
   if (!o.title && !o.tutorial) {
     spawnTank(114, 146, true); spawnTank(130, 146, true);
+    if (o.twist === 'depot') for (const [x, z] of [[110, 126], [124, 126], [146, 108]].slice(0, NIGHT.depotTanks)) spawnTank(x, z, true);
     for (const [x, z] of [[102, 98], [104, 104], [126, 98], [146, 128]]) {
       const s = spawnHuman(x, z, 'soldier', { team: 'earth', brain: brainGuard, hp: 20, mini: '#ff6a5a' }); s.weapon = WEAPON.rifle; s.zap = true;
     }

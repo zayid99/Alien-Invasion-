@@ -1,11 +1,14 @@
 // Save data: versioned so future updates can upgrade old saves instead of wiping them.
 import type { Wallet, UpgradeKey } from '../data/balance';
 import type { UnitKey } from '../data/units';
+import type { TwistId } from '../data/campaign';
 import { platform } from './platform';
 
 export interface MissionSite {
   id: string; type: 'abduct' | 'invade'; region: string; city?: string;
   lat: number; lon: number; name: string; level: number; expires: number; special?: string;
+  /** night twist (docs/gdd/night-sites.md) */ twist?: TwistId;
+  /** the daily challenge's local date (docs/gdd/return-hooks.md) */ daily?: string;
 }
 export interface SaveData {
   v: number; savedAt: number;
@@ -15,7 +18,8 @@ export interface SaveData {
   army: Record<UnitKey, number>;
   up: Record<UpgradeKey, number>;
   regions: Record<string, { alert: number }>;
-  cities: Record<string, { occupied: boolean; attempts: number; since?: number }>;
+  /** res = resistance 0-100, revolt = paying nothing, garrison = units left behind (docs/gdd/occupation.md) */
+  cities: Record<string, { occupied: boolean; attempts: number; since?: number; res?: number; revolt?: boolean; garrison?: number }>;
   sites: MissionSite[];
   artifacts: Record<string, number>;
   totals: { humans: number; biomass: number; metal: number; abducted: number; unitsLost: number; missions: number; citiesTaken: number; playTime: number };
@@ -26,13 +30,17 @@ export interface SaveData {
   /** Daily supply streak + today's daily mission. Dates are the player's local YYYY-MM-DD. */
   daily: { lastClaim: string; streak: number; completed: number; mission: { id: string; date: string; progress: number; done: boolean } | null };
   /** Records for achievements: best combo, MEGA BEAMs, full holds, perfect nights. */
-  best: { combo: number; megas: number; fullHolds: number; perfect: number; bosses: number };
+  best: { combo: number; megas: number; fullHolds: number; perfect: number; bosses: number; nightScore: number; stars3: number; drops: number };
   /** Equipped saucer skin and the skins the player has already been told about. */
   skin: string; skinsSeen: string[];
   /** Recent Earth News headlines (newest first). */
   news: string[];
+  /** New Game+ level (0 = first campaign) and whether the ending has been seen. */
+  ngPlus: number; ended: boolean;
+  /** Today's daily challenge result. */
+  challenge: { date: string; score: number; stars: number } | null;
 }
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 const KEY = 'alien-invasion-save';
 
 export function newSave(): SaveData {
@@ -46,8 +54,8 @@ export function newSave(): SaveData {
     totals: { humans: 0, biomass: 0, metal: 0, abducted: 0, unitsLost: 0, missions: 0, citiesTaken: 0, playTime: 0 },
     catalogue: {}, ach: {},
     daily: { lastClaim: '', streak: 0, completed: 0, mission: null },
-    best: { combo: 0, megas: 0, fullHolds: 0, perfect: 0, bosses: 0 },
-    skin: 'classic', skinsSeen: ['classic'], news: [],
+    best: { combo: 0, megas: 0, fullHolds: 0, perfect: 0, bosses: 0, nightScore: 0, stars3: 0, drops: 0 },
+    skin: 'classic', skinsSeen: ['classic'], news: [], ngPlus: 0, ended: false, challenge: null,
   };
 }
 /** Fill in anything a newer version added, so old saves keep working. */
@@ -56,7 +64,8 @@ function migrate(s: any): SaveData | null {
   const d = newSave();
   return { ...d, ...s, v: SAVE_VERSION, tutorial: { ...d.tutorial, ...s.tutorial }, res: { ...d.res, ...s.res }, army: { ...d.army, ...s.army },
     up: { ...d.up, ...s.up }, totals: { ...d.totals, ...s.totals }, regions: s.regions || {}, cities: s.cities || {}, sites: s.sites || [], artifacts: s.artifacts || {},
-    catalogue: s.catalogue || {}, ach: s.ach || {}, daily: { ...d.daily, ...s.daily }, best: { ...d.best, ...s.best }, skin: s.skin || 'classic', skinsSeen: s.skinsSeen || ['classic'], news: s.news || [] };
+    catalogue: s.catalogue || {}, ach: s.ach || {}, daily: { ...d.daily, ...s.daily }, best: { ...d.best, ...s.best }, skin: s.skin || 'classic', skinsSeen: s.skinsSeen || ['classic'], news: s.news || [],
+    ngPlus: s.ngPlus || 0, ended: !!s.ended, challenge: s.challenge || null };
 }
 export function loadSave(): SaveData | null {
   let local: SaveData | null = null, cloud: SaveData | null = null;

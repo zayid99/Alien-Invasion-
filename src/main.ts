@@ -29,6 +29,7 @@ import { refreshSites, armyPower, earthPower, cityLevel, verdict, startNewGamePl
 import { enterTitle, updateTitle } from './scenes/title';
 import { startMission, updateMission, endNight, missionHooks } from './scenes/mission';
 import { enterMothership, updateMothership, buildUnits, buyUpgrade } from './scenes/mothership';
+import { enterMoonBase, updateMoonBase } from './scenes/moonbase';
 import { enterGlobe, leaveGlobe, updateGlobe, globeHooks, globeSelection, hideLabels, refreshGlobe } from './scenes/globe';
 import { startInvasion, updateInvasion, updateVictory, endInvasion, invasionScene } from './scenes/invasion';
 
@@ -203,6 +204,7 @@ function step(dt: number) {
     case 'victory': updateVictory(dt); break;
     case 'globe': updateGlobe(dt, G.time); TUT.tick(); break;
     case 'mothership': updateMothership(dt, G.time); break;
+    case 'moonbase': updateMoonBase(dt); break;
     case 'summary': case 'end': {
       // While the iris closes, the finished night holds still under the old camera (no AI, shots or lifts: the
       // night is over and its cargo already banked); the slow report orbit starts behind the closed iris.
@@ -265,7 +267,7 @@ async function boot(data?: { save?: any }) {
 
 // Handy for testing in the browser console, e.g. __AI.give(100). Left out of the CrazyGames build (no console cheats).
 if (PLATFORM !== 'crazygames') (window as any).__AI = {
-  USED, instance, endInvasion, CITY_DMG, damageBuildings, BEAM, renderFrame, abductEnt, raiseAlert, enterTitle, G, startMission, startInvasion, enterMothership, goGlobe, endNight, deployUnit, setQuality, INPUT, PROJ, renderer, camera, TUT, bankCargo, damagePlayer, armyPower, earthPower, cityLevel, verdict, applyAway, startNewGamePlus,
+  USED, instance, endInvasion, CITY_DMG, damageBuildings, BEAM, renderFrame, abductEnt, raiseAlert, enterTitle, G, startMission, startInvasion, enterMothership, goGlobe, endNight, deployUnit, setQuality, INPUT, PROJ, renderer, camera, TUT, bankCargo, damagePlayer, enterMoonBase, armyPower, earthPower, cityLevel, verdict, applyAway, startNewGamePlus,
   give(n = 50) { for (const r of ['humans', 'biomass', 'metal'] as const) G.save.res[r] += n; writeSave(G.save); },
   simulate(sec: number, dt = 1 / 30) { for (let t = 0; t < sec; t += dt) { step(dt); INPUT.endFrame(); } },
   updateEnts: (dt: number) => updateEnts(dt, updateLift),

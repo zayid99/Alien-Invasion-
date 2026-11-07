@@ -6,7 +6,7 @@ import type { Entity } from '../world/entity';
 import type { Footprint } from '../gfx/models';
 import type { Vec3 } from '../core/util';
 
-export type Mode = 'boot' | 'title' | 'briefing' | 'globe' | 'mission' | 'summary' | 'mothership' | 'invasion' | 'victory' | 'end';
+export type Mode = 'boot' | 'title' | 'briefing' | 'globe' | 'mission' | 'summary' | 'mothership' | 'moonbase' | 'invasion' | 'victory' | 'end';
 export interface Cargo { humans: number; biomass: number; metal: number; mass: number }
 export interface NightState {
   number: number; level: number; site: MissionSite | null; tutorial: boolean;

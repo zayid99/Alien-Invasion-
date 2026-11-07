@@ -29,6 +29,7 @@ world, **C** easy to start, deep to master, **D** the whole planet.
 | 21 | Rendering: toon + ink, quality, bloom | ✅ | P0 | — | — | `gfx/toon.ts`, `core/engine.ts` | [ADR 005](../adr/005-ink-outlines.md), ART_STYLE.md |
 | 22 | Audio | ✅ | P1 | A | — | `core/audio.ts` | — |
 | 23 | Research, rooms, specimen traits | 🔜 | P2 | C | 7 | — | GDD §4.7–4.9 |
+| 24 | **Moon Base (Vision 2.0, phase 1)** | 🆕 concept | P0 | C, "alive" | 7, 11, 15 | `scenes/moonbase.ts`, `data/moonbase.ts` | [moon-base.md](moon-base.md), [VISION.md](../VISION.md) |
 
 ## Contradiction check (v0.4 systems together)
 

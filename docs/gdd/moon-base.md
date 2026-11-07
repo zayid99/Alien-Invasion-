@@ -6,23 +6,24 @@ data: `src/data/moonbase.ts`.
 
 ## Look
 A cutaway of the Moon floating over Earth, in the Moonlit Toybox style (toon shading, ink outlines, slime-green and
-violet alien tech). Two layouts were rendered for approval: **wedge** (a quarter cut out, two faces meeting at the
-reactor shaft) and **slice** (the front half cut away). Outside: cratered crust with glowing seams, an observation
+violet alien tech). **Layout: the wedge** (chosen by Zayid, 7 Nov 2026): a quarter of the moon is cut out, two faces
+meet at the glowing reactor shaft. Each face holds four storeys; every room reaches out to the moon's curved edge, so
+the rooms fill most of each face (about 65 %), and goes 10 m deep into the rock. Outside: cratered crust with glowing seams, an observation
 dome with Commander Zix on the north pole, antennas, a docking ring, saucers coming and going. On the faces: crew
 walking the ledges, elevator capsules running between floors.
 
 ## Rooms and what they do in Phase 1
 | Room | Phase 1 job (moved from the mothership) | Living animation | Later |
 |---|---|---|---|
-| Command Bridge | go to Earth (globe), war-room power | crew at consoles, rotating hologram Earth | chapter map, fleet orders |
-| Hybrid Lab | grow Gray Clones and Hypno-Brutes | vats with growing grays, rising bubbles | hybrids with traits |
-| Shipyard | build Attack Saucers and Mega Walkers | saucer on a lift, welding robot arms with sparks, conveyor, crane | ship classes |
-| Research Lab | saucer upgrades (beam, shield, engine, ray, cargo) | robot arm, floating cow specimen, bubbling flasks | the tech tree |
-| Guest Quarters | the specimen catalogue | humans on couches, alien TV, a guard | workers, test subjects |
-| Cargo Vault | resources and Earth artifacts | crates in resource colours, hover-drone moving crates | storage upgrades |
-| Trophy Hall | achievements and saucer skins | stolen landmarks spinning under spotlights | a trophy per capital |
-| Armory | locked ("Phase 3") | blinking panel, weapon racks | powers for city raids |
-| Reactor Core | shows the base level | pulsing core, spinning rings | energy |
+| Command Bridge | go to Earth (globe), war-room power | war map of Earth with blinking targets, typing crew, Zix swivelling in the captain's chair, hologram Earth with orbiting saucers, radar dish, live screens | chapter map, fleet orders |
+| Hybrid Lab | grow Gray Clones and Hypno-Brutes | five vats with grays growing, bubbles, glowing flow in the ceiling pipe, new clones walking out, operator desk | hybrids with traits |
+| Shipyard | build Attack Saucers and Mega Walkers | saucer rising on a lift while two arms weld it (sparks), a second half-built frame with its own welder, conveyor, crane, spinning hazard beacon, workers | ship classes |
+| Research Lab | saucer upgrades (beam, shield, engine, ray, cargo) | a cow and a human floating in specimen tubes, DNA hologram, scanning robot arm, bubbling flasks, live screens, a scientist walking | the tech tree |
+| Guest Quarters | the specimen catalogue | three cells with couches and beds, humans fidgeting, one pacing, alien TV, a guard on patrol, a pizza drone doing rounds | workers, test subjects |
+| Cargo Vault | resources and Earth artifacts | teleport pad beaming loot in from Earth, conveyor to the stacks, hover-drone, spinning artifacts, a keeper | storage upgrades |
+| Trophy Hall | achievements and saucer skins | Liberty torch, Eiffel top and pyramid tip spinning under swaying spotlights, golden Zix statue, a guided tour | a trophy per capital |
+| Armory | locked ("Phase 3") | weapon racks, power cells charging in turn, a Mega Walker on display, an alien test-firing at a cardboard tank | powers for city raids |
+| Reactor Core | shows the base level | pulsing core, spinning rings, energy pulses up and down the shaft, sparks | energy |
 
 ## Player-facing rules
 - **Overview:** the whole moon with a name tag on every room. Tap a room (or its tag) → the camera flies into it and its
@@ -45,5 +46,6 @@ walking the ledges, elevator capsules running between floors.
 4. Each purchase plays its room animation.
 5. Low graphics overview ≤ 250 draw calls; no console errors.
 
-## Open question for Zayid
-- Wedge or slice layout (concept renders, 7 Nov 2026).
+## Status
+- Layout chosen: wedge. Rooms enlarged and detailed (7 Nov 2026). Camera fly-in per room works (tap a tag, Back).
+- Next: wire it into the game as the home screen with the rooms' real functions.

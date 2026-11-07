@@ -1104,3 +1104,5 @@ dd small { color: var(--dim); font-size: .8em; }
 }
 .moon-label small { font: 600 10.5px/1.2 var(--font-ui); color: var(--dim); }
 .moon-label:hover { background: var(--violet-deep); }
+.moon-back { position: absolute; left: calc(var(--gut-l, 16px) + 4px); top: calc(var(--gut-t, 16px) + 4px); pointer-events: auto; padding: 8px 16px; border-radius: 999px; border: 2px solid var(--ink); background: var(--poster); color: var(--ink); font: 16px/1 var(--font-display); box-shadow: 0 3px 0 var(--ink); cursor: pointer; }
+.moon-back[hidden], .moon-label[hidden] { display: none; }

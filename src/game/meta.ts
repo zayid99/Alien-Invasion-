@@ -176,7 +176,7 @@ export function checkAchievements() {
     META.notify({ kind: 'achievement', title: a.name, text: a.text });
     platform.happytime();
     const skin = SKINS.find(k => k.ach === a.id);
-    if (skin && !G.save.skinsSeen.includes(skin.id)) { G.save.skinsSeen.push(skin.id); META.notify({ kind: 'achievement', title: `New saucer skin: ${skin.name}`, text: 'Equip it in the mothership hangar.' }); }
+    if (skin && !G.save.skinsSeen.includes(skin.id)) { G.save.skinsSeen.push(skin.id); META.notify({ kind: 'achievement', title: `New saucer skin: ${skin.name}`, text: 'Equip it in the Trophy Hall of the Moon Base.' }); }
   }
 }
 /** Skins the player has earned (classic is always free). */

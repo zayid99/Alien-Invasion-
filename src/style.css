@@ -1106,3 +1106,44 @@ dd small { color: var(--dim); font-size: .8em; }
 .moon-label:hover { background: var(--violet-deep); }
 .moon-back { position: absolute; left: calc(var(--gut-l, 16px) + 4px); top: calc(var(--gut-t, 16px) + 4px); pointer-events: auto; padding: 8px 16px; border-radius: 999px; border: 2px solid var(--ink); background: var(--poster); color: var(--ink); font: 16px/1 var(--font-display); box-shadow: 0 3px 0 var(--ink); cursor: pointer; }
 .moon-back[hidden], .moon-label[hidden] { display: none; }
+
+/* ---------------- Moon Base screen (docs/gdd/moon-base.md) ---------------- */
+#scr-moon { justify-content: space-between; align-items: stretch; pointer-events: none; overflow: hidden; padding-block: var(--gut-t) var(--gut-b); }
+#scr-moon > * { pointer-events: auto; }
+.moon-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.moon-title .eyebrow { color: var(--violet-hot); text-shadow: var(--stroke); }
+.moon-title h2 { color: var(--poster); text-shadow: var(--stroke), 0 4px 0 var(--ink); margin: 0; }
+.moon-acts { display: flex; gap: 8px; }
+.moon-panel { position: absolute; right: var(--gut-r); top: calc(var(--gut-t) + 86px); bottom: var(--gut-b); width: min(400px, 42vw); overflow-y: auto; overscroll-behavior: contain; z-index: 2; }
+.moon-panel[hidden] { display: none; }
+.moon-panel > header { align-items: start; }
+.moon-panel > header h3 { margin: 0; color: var(--poster); }
+.moon-panel #mp-body { display: grid; gap: 10px; align-content: start; }
+.moon-panel .chapter-card .row { flex-wrap: wrap; }
+.moon-hint { align-self: center; margin: 0 0 6px; padding: 6px 14px; border-radius: 999px; background: rgba(27, 17, 80, .8); border: 2px solid var(--ink); color: #fff; font: 600 14px/1.2 var(--font-ui); pointer-events: none !important; }
+.moon-hint[hidden] { display: none; }
+#moon-labels { z-index: 21; }
+.moon-label { min-height: 30px; }
+body.touch .moon-label { min-height: 40px; padding: 8px 12px 6px; font-size: 13.5px; }
+@media (orientation: portrait) {
+  .moon-panel { left: var(--gut-l); right: var(--gut-r); top: auto; bottom: var(--gut-b); width: auto; max-height: 50vh; }
+  .moon-top h2 { font-size: 26px; }
+  .moon-acts .btn { padding: .5em .8em; }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .moon-panel { top: calc(var(--gut-t) + 56px); width: min(360px, 46vw); }
+  .moon-top h2 { font-size: 22px; } .moon-title .eyebrow { display: none; }
+}
+/* on the Moon Base the tutorial box sits in a corner, clear of the room tags and the panel */
+body.in-moon #tut { top: auto; bottom: calc(var(--gut-b) + 8px); left: var(--gut-l); transform: none; width: min(400px, calc(100% - 32px)); }
+@media (orientation: portrait) { body.in-moon #tut { top: calc(var(--gut-t) + 76px); bottom: auto; left: 50%; transform: translateX(-50%); } }
+/* the room bar sits at the top of the room panel */
+.moon-rooms { display: flex; gap: 5px; flex-wrap: wrap; }
+.moon-rooms .btn { padding: .35em .65em; font-size: 12.5px; opacity: .9; }
+.moon-rooms .btn.on { background: var(--poster); color: var(--ink); opacity: 1; }
+@media (orientation: portrait) {
+  .moon-rooms { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .moon-rooms .btn { flex: none; }
+  .moon-top { gap: 6px; } .moon-title .eyebrow { display: none; } .moon-top h2 { font-size: 22px; }
+  .moon-acts .btn { font-size: 13px; padding: .45em .7em; }
+  body.touch .moon-label { min-height: 32px; padding: 5px 8px 4px; font-size: 11.5px; }
+}

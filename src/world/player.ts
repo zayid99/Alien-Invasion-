@@ -231,7 +231,7 @@ export function startSend() {
   P.sending = CFG.sendTime; SFX.play('send'); FX.pillar(P.pos, PAL.slime, 220, CFG.sendTime + 0.4, 2.4);   // slime send pillar
   FX.word(_v1.copy(P.pos).setY(P.pos.y - 3), 'send');
 }
-function finishSend() { bankCargo(); UI.toast('Cargo received by the mothership', 'good', 1.8); playerHooks.onSend(); }
+function finishSend() { bankCargo(); UI.toast('Cargo received by the Moon Base', 'good', 1.8); playerHooks.onSend(); }
 export function bankCargo() {
   for (const r of RES) { G.save.res[r] += G.cargo[r]; G.save.totals[r] += G.cargo[r]; if (G.night) G.night.banked[r] += G.cargo[r]; G.cargo[r] = 0; }
   G.cargo.mass = 0;

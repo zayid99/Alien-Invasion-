@@ -13,7 +13,7 @@ You are Commander Zix of the Gray Empire, and Earth is next on the list.
 
 Fly your flying saucer over sleepy farm towns at night and hold the tractor beam to pull up humans, cows, pigs, cars and even tanks. Chain abductions into combos for bonus loot and power up the **MEGA BEAM**. Stun the police and the army with your ray before your shield breaks, and send your cargo home before dawn.
 
-Back on the mothership, turn your haul into an army: gray clones, hypno-brutes, attack saucers and giant mega walkers. Then pick a real city on the 3D globe, from Chicago and Paris to Tokyo and Dhaka, and invade. Your army fights on its own while you fly support: grab Earth's soldiers and tanks with the beam and drop them on the shield pylons, rally your troops, and take the city. Every captured city pays you tribute, as long as you keep its resistance down.
+Back home in your hollow Moon Base, every room is alive: grow clones in the Hybrid Lab, weld saucers in the Shipyard, upgrade your beam in the Research Lab. Turn your haul into an army: gray clones, hypno-brutes, attack saucers and giant mega walkers. Then pick a real city on the 3D globe, from Chicago and Paris to Tokyo and Dhaka, and invade. Your army fights on its own while you fly support: grab Earth's soldiers and tanks with the beam and drop them on the shield pylons, rally your troops, and take the city. Every captured city pays you tribute, as long as you keep its resistance down.
 
 Conquer each continent's capital and its giant boss to open the next chapter, then launch the final assault on the World Defense Command.
 
@@ -22,7 +22,7 @@ Conquer each continent's capital and its giant boss to open the next chapter, th
 - Abduction nights in farmland, desert, tropics and snow
 - Combos and the MEGA BEAM: the more you beam, the more you get
 - Earth fights back: police, soldiers, tanks and missile trucks as the alert rises
-- Build an alien army and upgrade your saucer on the mothership
+- A living Moon Base: tap into the Shipyard, Hybrid Lab, Research Lab, Guest Quarters, Trophy Hall and more
 - Night twists like the County Fair and the Tank Depot, with a 3-star grade and a personal best every night
 - 4 chapters, a final assault, an ending, and New Game+
 - A daily challenge night, daily supply drops, daily missions, a specimen catalogue and 34 achievements

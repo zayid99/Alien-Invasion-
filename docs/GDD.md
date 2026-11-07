@@ -73,7 +73,7 @@ the army can be rallied (`gdd/invasion-command.md`).
 - Occupied cities pay daily tribute. Later: resistance meter, garrisons, hypno-towers, uprisings.
 
 ### 4.5 Army
-Units fight on their own. Built from resources on the mothership or dropped in battle.
+Units fight on their own. Built in the Moon Base (Hybrid Lab and Shipyard) or dropped in battle.
 
 ### 4.6 Saucer upgrades
 Tractor beam (lift weight, speed, radius), shield, engines, stun ray, cargo hold. Later: weapon slots, modules, hull types, cosmetic skins.

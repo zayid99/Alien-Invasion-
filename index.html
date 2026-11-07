@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Alien Invasion: Conquer Earth</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Play a gray alien commander: abduct humans, cows and cars, build an army on your mothership and conquer every city on Earth.">
+<meta name="description" content="Play a gray alien commander: abduct humans, cows and cars, build an army in your hollow Moon Base and conquer every city on Earth.">
 <meta name="theme-color" content="#0f0828">
 <!-- Fonts are self-hosted (@fontsource, imported at the top of src/style.css). Vite fingerprints these two
      preloads to the same files the CSS uses, so Lilita One and Fredoka 600 start downloading before the CSS. -->
@@ -108,44 +108,23 @@
     <dl class="stats" id="sum-body"></dl>
     <p class="fine" id="sum-note" style="text-align:left"></p>
     <div id="sum-goals"></div>
-    <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn reward" id="btn-sum-reward" hidden></button><button class="btn" id="btn-sum-ms">Mothership</button><button class="btn primary" id="btn-sum-next">Back to Earth</button></div>
+    <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn reward" id="btn-sum-reward" hidden></button><button class="btn" id="btn-sum-ms">Moon Base</button><button class="btn primary" id="btn-sum-next">Back to Earth</button></div>
   </div>
 </section>
 
 <!-- ================= MOTHERSHIP ================= -->
-<section id="scr-mothership" class="screen" hidden>
-  <div class="ms-head">
-    <div>
-      <div class="eyebrow" id="ms-sub">High orbit · Day 1</div>
-      <h2>Mothership</h2>
-      <div class="ms-meta"><button class="btn small" id="btn-cat">Catalogue</button><button class="btn small" id="btn-ach">Achievements</button><button class="btn small" id="btn-hangar">Hangar</button></div>
-    </div>
-    <div class="wallet" id="ms-wallet"></div>
+<section id="scr-moon" class="screen moon" hidden>
+  <div class="moon-top">
+    <div class="moon-title"><div class="eyebrow" id="moon-sub">The Hollow Moon · Day 1</div><h2>Moon Base</h2></div>
+    <div class="wallet" id="moon-wallet"></div>
+    <div class="moon-acts"><button class="btn small" id="btn-moon-menu">Save &amp; quit</button><button class="btn primary" id="btn-moon-earth">To Earth</button></div>
   </div>
-  <div class="ms-grid">
-    <div class="ms-panel">
-      <header><h3>Build your army</h3><p>Units fight on their own during the invasion</p></header>
-      <div id="ms-army" style="display:grid;gap:8px"></div>
-    </div>
-    <div class="ms-panel">
-      <header><h3>Upgrade your saucer</h3><p>Max level 5</p></header>
-      <div id="ms-upgrades" style="display:grid;gap:8px"></div>
-    </div>
-  </div>
-  <div class="ms-panel war">
-    <div class="war-info" style="display:grid;gap:4px;min-width:0">
-      <header style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline"><h3>War room</h3><p id="ms-earth-note" style="color:var(--dim);font-size:13px">Earth's defenses grow every night you wait</p></header>
-      <div class="power">
-        <div class="lane us"><span>Your army</span><div class="track"><i id="pw-us"></i></div><b id="pw-us-n">0</b></div>
-        <div class="lane them"><span id="pw-them-label">Next city</span><div class="track"><i id="pw-them"></i></div><b id="pw-them-n">0</b></div>
-      </div>
-      <p id="ms-verdict"></p>
-    </div>
-    <div class="row war-acts">
-      <button class="btn" id="btn-ms-menu">Save &amp; quit</button>
-      <button class="btn primary" id="btn-ms-earth">Back to Earth</button>
-    </div>
-  </div>
+  <aside id="moon-panel" class="ms-panel moon-panel" hidden>
+    <nav id="moon-rooms" class="moon-rooms"></nav>
+    <header><div><h3 id="mp-title"></h3><p id="mp-job"></p></div><button class="btn small" id="btn-mp-back">Back</button></header>
+    <div id="mp-body"></div>
+  </aside>
+  <p class="moon-hint" id="moon-hint">Tap a room to go inside</p>
 </section>
 
 <!-- ================= PAUSE ================= -->
@@ -158,7 +137,7 @@
       <button class="btn" id="btn-quality">Graphics: high</button>
     </div>
     <button class="btn danger" id="btn-quit">Abort mission</button>
-    <p class="fine" id="pause-note">Aborting a night keeps what you already sent to the mothership.</p>
+    <p class="fine" id="pause-note">Aborting a night keeps what you already sent to the Moon Base.</p>
   </div>
 </section>
 
@@ -183,7 +162,7 @@
       <div class="meter" id="g-aware" title="How much the world believes in aliens. Higher means a stronger army everywhere."><span>Aware</span><div class="bar"><i></i></div><b class="val">0%</b></div>
       <div class="meter" id="g-conq" title="Cities you control"><span>Cities</span><div class="bar"><i></i></div><b class="val">0</b></div>
     </div>
-    <div class="g-right"><div class="wallet" id="g-wallet"></div><button class="btn" id="btn-g-ms"><svg class="ico glyph" viewBox="0 0 32 24" aria-hidden="true"><use href="#i-saucer"/></svg>Mothership</button><button id="btn-g-menu" class="icon-btn" aria-label="Menu">II</button></div>
+    <div class="g-right"><div class="wallet" id="g-wallet"></div><button class="btn" id="btn-g-ms"><svg class="ico glyph" viewBox="0 0 32 24" aria-hidden="true"><use href="#i-saucer"/></svg>Moon Base</button><button id="btn-g-menu" class="icon-btn" aria-label="Menu">II</button></div>
   </header>
   <aside id="g-panel" class="g-panel" aria-live="polite"></aside>
   <div id="g-news" class="g-news" aria-label="Earth News"><b>Earth News</b><div class="tick"><span id="g-news-text"></span></div></div>

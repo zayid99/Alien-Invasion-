@@ -3,10 +3,16 @@
 // reactor shaft standing in the corner. Every room is alive. Tapping a room's tag flies the camera into it.
 import * as THREE from 'three';
 import { G, track } from '../game/state';
-import { camera, LIGHT, makeStars, fresnelMaterial, gradientSky, scene } from '../core/engine';
+import { camera, LIGHT, makeStars, fresnelMaterial, gradientSky, scene, QUALITY } from '../core/engine';
+import { FT } from '../gfx/fx';
+import { UI } from '../ui/dom';
+import { TUT } from '../ui/tutorial';
+import { SFX } from '../core/audio';
+import { platform } from '../core/platform';
+import { moonHooks, renderMoonPanel } from '../ui/moonPanel';
 import { Kit, box, cyl, sph, cone, cachedModel } from '../gfx/kit';
 import { PAL, SKY } from '../gfx/palette';
-import { toonMaterial, inkify, setRimColor } from '../gfx/toon';
+import { toonMaterial, inkify, setRimColor, setInk } from '../gfx/toon';
 import { makeGrayAlien, makeZix, miniSaucer, makeWalker, FARM_MAKERS } from '../gfx/models';
 import { instance, hasModel, ARTIFACTS } from '../core/assets';
 import { clearWorld } from '../world/maps/common';
@@ -28,15 +34,19 @@ interface Anim { fn: (dt: number, t: number) => void }
 const MB = {
   anims: [] as Anim[], labels: new Map<RoomId, HTMLElement>(), anchors: new Map<RoomId, THREE.Vector3>(), views: new Map<RoomId, { pos: THREE.Vector3; look: THREE.Vector3 }>(),
   orbit: [] as { o: THREE.Object3D; a: number; r: number; y: number; s: number }[], focus: null as RoomId | null,
-  cam: { from: new THREE.Vector3(), to: new THREE.Vector3(), lookFrom: new THREE.Vector3(), lookTo: new THREE.Vector3(), look: new THREE.Vector3(), t: 1 },
+  /** per-room "something was just made here" animation (moonPanel → celebrate) */ cel: new Map<RoomId, () => void>(),
+  /** each room's group: outlines are drawn only for the room the camera is in (draw-call budget) */ groups: new Map<RoomId, THREE.Object3D>(), life: [] as THREE.Object3D[],
+  down: null as { x: number; y: number } | null, ray: new THREE.Raycaster(), reactor: null as THREE.Object3D | null,
+  cam: { from: new THREE.Vector3(), to: new THREE.Vector3(), lookFrom: new THREE.Vector3(), lookTo: new THREE.Vector3(), look: new THREE.Vector3(), t: 1, dur: 1.1 },
   home: { pos: new THREE.Vector3(), look: new THREE.Vector3() },
 };
 const anim = (fn: (dt: number, t: number) => void) => MB.anims.push({ fn });
 
-export function enterMoonBase() {
+export function enterMoonBase(o: { intro?: boolean } = {}) {
   leaveGlobe(); hideLabels(); clearWorld();
   G.mode = 'moonbase'; G.paused = false; G.modeTime = 0;
-  MB.anims = []; MB.orbit = []; MB.anchors.clear(); MB.views.clear(); MB.focus = null;
+  MB.anims = []; MB.orbit = []; MB.anchors.clear(); MB.views.clear(); MB.focus = null; MB.cel.clear(); MB.groups.clear(); MB.life = [];
+  moonHooks.room = () => MB.focus; moonHooks.celebrate = celebrate;
   const S = SKY.space; scene.fog = null; scene.background = new THREE.Color(S.bottom);
   const sky = gradientSky(S.top, S.horizon, S.bottom, 1200); sky.renderOrder = -10; track(sky.geometry, sky.material as THREE.Material); G.world.add(sky);
   const stars = makeStars(2600, 900, -1); track(stars.geometry, stars.material as THREE.Material); G.world.add(stars);
@@ -54,11 +64,31 @@ export function enterMoonBase() {
   buildShell(root); buildFaces(root); buildReactor(root);
   for (const id of ROOM_IDS) if (id !== 'reactor') buildRoom(root, id);
   buildExterior(root);
+  removeEventListener('keydown', onKey); addEventListener('keydown', onKey);
+  const cv = document.getElementById('game'); if (cv && !cv.dataset.moonPick) { cv.dataset.moonPick = '1'; cv.addEventListener('pointerdown', e => { MB.down = { x: e.clientX, y: e.clientY }; }); cv.addEventListener('pointerup', onPick); }
+  for (const o of MB.orbit) MB.life.push(o.o);
+  applyInk();
   root.updateMatrixWorld(true);
   makeLabels();
-  const fit = (R + 5.5) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / Math.min(1, camera.aspect * 0.9);
+  const tv = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), fit = camera.aspect < 1 ? (R + 2) / tv / camera.aspect : (R + 5.5) / tv / Math.min(1, camera.aspect * 0.9);
   MB.home.pos.set(0, 14, fit); MB.home.look.set(0, 0.5, 0);
   camera.position.copy(MB.home.pos); MB.cam.look.copy(MB.home.look); camera.lookAt(MB.cam.look); MB.cam.t = 1;
+  if (o.intro) {   // the first visit: swoop in from deep space while the moon turns towards you
+    const c = MB.cam; c.from.set(-120, 90, fit * 3.2); c.lookFrom.set(-20, 0, 0); c.to.copy(MB.home.pos); c.lookTo.copy(MB.home.look); c.t = 0; c.dur = 3.2;
+    camera.position.copy(c.from); c.look.copy(c.lookFrom); camera.lookAt(c.look);
+  }
+  UI.hud(false); UI.globe(false); UI.show('scr-moon'); $hint(true); renderMoonPanel(); document.body.classList.add('in-moon');
+  SFX.setMusic('calm'); platform.gameplayStop();
+}
+const $hint = (on: boolean) => { const h = document.getElementById('moon-hint'); if (h) h.hidden = !on; };
+/** A purchase in a room: its own animation, a burst of sparks and a caption over the room. */
+function celebrate(room: RoomId, text: string) {
+  if (MB.focus !== room) focusRoom(room);
+  MB.cel.get(room)?.();
+  const v = MB.views.get(room); if (!v) return;
+  _tw.copy(v.look).add(new THREE.Vector3(0, 1.5, 0));   // the middle of the room, where the camera looks
+  FX.spark(_tw, FXC.slime, 18, 9, 0.3, 0.7, -6); FX.spark(_tw, FXC.poster, 10, 7, 0.25, 0.6, -6);
+  FT.spawn(_tw.clone().add(new THREE.Vector3(0, 1.5, 0)), text, 'good', 1.3, 2.2);
 }
 
 // ------------------------------------------------------------------ the rock: shell, cut faces, reactor
@@ -114,8 +144,8 @@ function buildFaces(root: THREE.Group) {
 }
 /** Crew walking the ledges; an elevator capsule running beside the reactor. */
 function buildFaceLife(root: THREE.Group, side: number) {
-  const grp = new THREE.Group(); grp.rotation.y = faceRy(side); root.add(grp);
-  for (let b = 0; b < 3; b++) {
+  const grp = new THREE.Group(); grp.rotation.y = faceRy(side); root.add(grp); MB.life.push(grp);
+  for (let b = 0; b < (QUALITY === 'low' ? 0 : 3); b++) {
     const v = (MOON.bands[b][0] + MOON.bands[b + 1][1]) / 2 - 0.1, span = arcU(v) - CORE - 3, ph = b * 1.9 + side;
     for (let j = 0; j < 2; j++) {
       const a = alien(grp, side * (CORE + 2), v, 0.9, 0, 0.62), off = j * 2.6;
@@ -133,7 +163,7 @@ function buildReactor(root: THREE.Group) {
   k.add(cyl(rr, rr, 44, 16), PAL.violet, { m: 'glow', k: 2.2 });
   for (let y = -20; y <= 20; y += 4) k.add(cyl(rr + 0.5, rr + 0.5, 0.5, 16), HULL, { p: [0, y, 0], m: 'metal' });
   for (const y of [-22, 22]) k.add(cyl(2.8, 2.8, 1.4, 16), HULL, { p: [0, y, 0], m: 'metal' });
-  root.add(k.build(g => G.disposables.push(g)));
+  const shaft = k.build(g => G.disposables.push(g)); root.add(shaft); MB.reactor = shaft;
   const core = new THREE.Mesh(track(new THREE.IcosahedronGeometry(2.6, 1)), track(new THREE.MeshBasicMaterial({ color: new THREE.Color(PAL.slime).multiplyScalar(2.4), toneMapped: false })));
   core.position.set(0, 0.6, 0); root.add(core);
   const rings: THREE.Object3D[] = [];
@@ -165,7 +195,7 @@ function interiorGeo(band: number) {
 }
 function buildRoom(root: THREE.Group, id: RoomId) {
   const def = ROOMS[id], [v0, v1] = MOON.bands[def.band];
-  const grp = new THREE.Group(); grp.rotation.y = faceRy(def.side); root.add(grp);
+  const grp = new THREE.Group(); grp.rotation.y = faceRy(def.side); root.add(grp); MB.groups.set(id, grp);
   const lr = new THREE.Group(); lr.scale.x = def.side; grp.add(lr);   // room space: x runs away from the reactor on both faces
   const shellK = new Kit(); shellK.add(interiorGeo(def.band), def.wall);
   lr.add(shellK.build(g => G.disposables.push(g), false));
@@ -184,7 +214,7 @@ function buildRoom(root: THREE.Group, id: RoomId) {
   lr.updateMatrixWorld(true);
   MB.anchors.set(id, lr.localToWorld(new THREE.Vector3(mid, v1 - 0.2, 0.4)));
   const look = lr.localToWorld(new THREE.Vector3((CORE + xF) / 2, (v0 + v1) / 2 - 0.5, -D * 0.45));
-  MB.views.set(id, { pos: look.clone().addScaledVector(faceN(def.side), 19).add(new THREE.Vector3(0, 2.5, 0)), look });
+  MB.views.set(id, { pos: look.clone().addScaledVector(faceN(def.side), 23).add(new THREE.Vector3(0, 3, 0)), look });
 }
 // ---- prop helpers (room space: x along the room from the reactor, y = height, z = depth into the moon, negative)
 const glass = (c = '#8ff4ff', o = 0.22) => track(new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false }));
@@ -217,7 +247,9 @@ function robotArm(grp: THREE.Object3D, x: number, y: number, z: number, color: s
 function pace(o: THREE.Object3D, x0: number, x1: number, y: number, z: number, speed: number, ph = 0) {
   anim((dt, t) => { const s = Math.sin(t * speed + ph); o.position.x = x0 + (s * 0.5 + 0.5) * (x1 - x0); o.rotation.y = Math.cos(t * speed + ph) > 0 ? Math.PI / 2 : -Math.PI / 2; o.position.y = y + Math.abs(Math.sin(t * 8 + ph)) * 0.08; o.position.z = z; });
 }
-const _tw = new THREE.Vector3(), _tw2 = new THREE.Vector3();
+const _tw = new THREE.Vector3(), _tw2 = new THREE.Vector3(), _bm = new THREE.Matrix4();
+/** Low graphics: fewer background actors per room (each room keeps its main animation). */
+const LOW = () => QUALITY === 'low';
 
 const PROPS: Partial<Record<RoomId, (k: Kit, b: RoomBox) => void>> = {
   bridge(k, b) {
@@ -230,6 +262,7 @@ const PROPS: Partial<Record<RoomId, (k: Kit, b: RoomBox) => void>> = {
     // curved crew consoles with typing crew
     for (let i = 0; i < 4; i++) {
       const x = x0 + 3 + i * 3.1, z = -5.4 + Math.abs(i - 1.5) * 0.5;
+      if (LOW() && i % 2) { k.add(box(2.4, 1.1, 1.3), '#4a4466', { p: [x, b.F + 0.55, z], m: 'metal' }); continue; }
       k.add(box(2.4, 1.1, 1.3), '#4a4466', { p: [x, b.F + 0.55, z], m: 'metal' }); k.add(box(2, 0.1, 0.9), b.accent, { p: [x, b.F + 1.16, z], r: [-0.35, 0, 0], m: 'glow', k: 1.8 });
       const c = alien(g, x, b.F, z + 1.3, Math.PI, 0.82); anim((dt, t) => { c.rotation.x = Math.sin(t * 9 + i) * 0.04; c.position.y = b.F + Math.abs(Math.sin(t * 7 + i * 2)) * 0.05; });
     }
@@ -241,7 +274,7 @@ const PROPS: Partial<Record<RoomId, (k: Kit, b: RoomBox) => void>> = {
     // hologram table: wireframe Earth with two saucers orbiting it
     k.add(cyl(1.4, 1.6, 1.2, 14), '#4a4466', { p: [x0 + 14.5, b.F + 0.6, -3.5], m: 'metal' }); k.add(cyl(1.3, 1.3, 0.1, 14), b.accent, { p: [x0 + 14.5, b.F + 1.25, -3.5], m: 'glow', k: 1.6 });
     const holo = new THREE.Mesh(track(new THREE.SphereGeometry(1.2, 16, 10)), track(new THREE.MeshBasicMaterial({ color: new THREE.Color(PAL.slime).multiplyScalar(1.6), wireframe: true, toneMapped: false }))); holo.position.set(x0 + 14.5, b.F + 3, -3.5); holo.scale.setScalar(1.4); holo.userData.noInk = true; g.add(holo);
-    const minis = [0, 1].map(() => { const m = miniSaucer(); m.scale.setScalar(0.18); g.add(m); return m; });
+    const minis = (LOW() ? [] : [0, 1]).map(() => { const m = miniSaucer(); m.scale.setScalar(0.18); g.add(m); return m; });
     for (let i = 0; i < 3; i++) screen(g, b.xF - 1.2 - i * 2.4, b.F + 2.2 + (i % 2) * 1.4, -D + 0.6, 2, 1.1, ['#9cff3f', '#5fe8ff', '#ff6fb5', '#ffd23f'], 1.5 + i * 0.5);
     glow(g, new THREE.RingGeometry(1.3, 1.6, 24).rotateX(-Math.PI / 2), b.accent, 1.4, x0 + 8, b.F + 0.05, -1.8);
     // radar dish on the ceiling
@@ -267,7 +300,11 @@ const PROPS: Partial<Record<RoomId, (k: Kit, b: RoomBox) => void>> = {
     k.add(cyl(0.9, 1.1, 1, 12), '#4a4466', { p: [x0 + 6.5, b.F + 0.5, -2.2], m: 'metal' });
     const dna = new THREE.Group(); dna.position.set(x0 + 6.5, b.F + 1.2, -2.2); g.add(dna);
     const dg = track(new THREE.SphereGeometry(0.14, 6, 4)), dm1 = track(new THREE.MeshBasicMaterial({ color: new THREE.Color(PAL.bubblegum).multiplyScalar(2), toneMapped: false })), dm2 = track(new THREE.MeshBasicMaterial({ color: new THREE.Color(PAL.mint).multiplyScalar(2), toneMapped: false }));
-    for (let i = 0; i < 16; i++) { const a = i * 0.55, y = i * 0.22; for (const [m, s] of [[dm1, 1], [dm2, -1]] as const) { const p = new THREE.Mesh(dg, m); p.position.set(Math.cos(a) * 0.6 * s, y, Math.sin(a) * 0.6 * s); p.userData.noInk = true; dna.add(p); } }
+    for (const [m, s] of [[dm1, 1], [dm2, -1]] as const) {
+      const im = new THREE.InstancedMesh(dg, m, 16); im.userData.noInk = true; const mx = new THREE.Matrix4();
+      for (let i = 0; i < 16; i++) { const a = i * 0.55; im.setMatrixAt(i, mx.makeTranslation(Math.cos(a) * 0.6 * s, i * 0.22, Math.sin(a) * 0.6 * s)); }
+      dna.add(im);
+    }
     // desks with live screens, flasks, a scanning robot arm, a scientist walking the lab
     for (const x of [x0 + 2.2, x0 + 5.2]) { k.add(box(2.6, 1, 1.4), WHITE, { p: [x, b.F + 0.5, -D + 1.2], m: 'metal' }); screen(g, x, b.F + 2, -D + 0.6, 2.2, 1.2, ['#5fe8ff', '#9cff3f', '#ff6fb5']); }
     k.add(box(4.2, 1, 1), WHITE, { p: [x0 + 2.6, b.F + 0.5, -1.6], m: 'metal' });
@@ -275,13 +312,15 @@ const PROPS: Partial<Record<RoomId, (k: Kit, b: RoomBox) => void>> = {
     for (let i = 0; i < 5; i++) { k.add(cyl(0.22, 0.34, 0.9, 8), [PAL.bubblegum, PAL.mint, PAL.poster, PAL.slime, PAL.violet][i], { p: [x0 + 1 + i * 0.8, b.F + 1.45, -1.6], m: 'glow', k: 1.8 }); fl.push(glow(g, new THREE.SphereGeometry(0.09, 5, 4), '#ffffff', 1.4, x0 + 1 + i * 0.8, b.F + 2, -1.6)); }
     const arm = robotArm(g, x0 + 9, b.F, -2, '#5fe8ff', 0);
     const sci = alien(g, x0 + 3, b.F, -3.6, 0, 0.85); pace(sci, x0 + 2, x0 + 9.5, b.F, -3.6, 0.35);
+    let boost = 0;
+    MB.cel.set('research', () => { boost = 1; dna.getWorldPosition(_tw2); _tw2.y += 1.6; FX.spark(_tw2, FXC.bubblegum, 16, 7, 0.25, 0.7, -4); FX.ring(_tw2, 3, 0.5, FXC.violet); });
     anim((dt, t) => {
-      dna.rotation.y += dt * 1.2; arm.arm.rotation.x = -0.3 + Math.sin(t * 1.3) * 0.35; arm.base.rotation.y = Math.sin(t * 0.7) * 0.9;
+      boost = Math.max(0, boost - dt * 0.6); dna.rotation.y += dt * (1.2 + boost * 12); dna.scale.setScalar(1 + boost * 0.3); arm.arm.rotation.x = -0.3 + Math.sin(t * 1.3) * 0.35; arm.base.rotation.y = Math.sin(t * 0.7) * 0.9;
       fl.forEach((f, i) => { f.position.y = b.F + 2 + ((t * 0.8 + i * 0.37) % 1) * 1.2; });
     });
   },
   hybrid(k, b) {
-    const g = b.grp, x0 = CORE, n = 5, step = (b.xF - x0 - 4) / n, bubbles: THREE.Mesh[] = [];
+    const g = b.grp, x0 = CORE, n = 5, step = (b.xF - x0 - 4) / n, bubbles: { x0: number; y: number; z: number }[] = [];
     const bmat = track(new THREE.MeshBasicMaterial({ color: new THREE.Color(PAL.mint).multiplyScalar(1.8), toneMapped: false })), bgeo = track(new THREE.SphereGeometry(0.15, 6, 4));
     for (let i = 0; i < n; i++) {
       const x = x0 + 2 + step * (i + 0.5), z = -D + 2.4;
@@ -291,18 +330,26 @@ const PROPS: Partial<Record<RoomId, (k: Kit, b: RoomBox) => void>> = {
       const liquid = new THREE.Mesh(track(new THREE.CylinderGeometry(1.2, 1.2, 5.6, 18)), glass('#4ff0d0', 0.3)); liquid.position.set(x, b.F + 3.5, z); liquid.userData.noInk = true; g.add(liquid);
       const clone = alien(g, x, b.F + 1.2, z, 0, 0.8), ph = i * 1.6;
       anim((dt, t) => { const grow = ((t * 0.12 + ph / 10) % 1); clone.scale.setScalar(0.35 + grow * 0.55); clone.position.y = b.F + 1.2 + Math.sin(t * 1.1 + i) * 0.15; clone.rotation.y = Math.sin(t * 0.4 + i) * 0.5; });
-      for (let j = 0; j < 5; j++) { const m = new THREE.Mesh(bgeo, bmat); m.position.set(x + (j - 2) * 0.35, b.F + 1 + j * 1.1, z + 0.8); m.userData.noInk = true; m.userData.x0 = m.position.x; g.add(m); bubbles.push(m); }
+      for (let j = 0; j < 5; j++) bubbles.push({ x0: x + (j - 2) * 0.35, y: b.F + 1 + j * 1.1, z: z + 0.8 });
     }
     // pipes along the ceiling with glowing flow
     k.add(box(b.xC - x0 - 1, 0.6, 0.6), STEEL, { p: [(x0 + b.xC) / 2, b.top - 1.1, -D + 2.4], m: 'metal' });
     const flow = [0, 1, 2, 3].map(() => glow(g, new THREE.SphereGeometry(0.22, 6, 4), PAL.mint, 2, x0, b.top - 1.1, -D + 2.4 + 0.35));
     // newly made clones walk out of the lab, one after another, towards the elevator
-    const walkers = [0, 1, 2].map(() => alien(g, x0 + 2, b.F, -2.2, -Math.PI / 2, 0.85));
+    const walkers = (LOW() ? [0] : [0, 1, 2]).map(() => alien(g, x0 + 2, b.F, -2.2, -Math.PI / 2, 0.85));
     // the operator's desk
     k.add(box(3.2, 1.1, 1.3), WHITE, { p: [b.xF - 2.4, b.F + 0.55, -1.4], m: 'metal' }); screen(g, b.xF - 2.4, b.F + 2, -2.1, 2.4, 1.2, ['#4ff0d0', '#9cff3f', '#a77bff']);
     alien(g, b.xF - 2.4, b.F, -0.3, Math.PI, 0.9);
+    const bub = new THREE.InstancedMesh(bgeo, bmat, bubbles.length); bub.userData.noInk = true; bub.frustumCulled = false; g.add(bub);
+    const born = alien(g, b.xF - 4, b.F, -2.2, -Math.PI / 2, 0.85); born.visible = false; let bornT = -1;
+    const liquids = g.children.filter(o => (o as THREE.Mesh).isMesh && ((o as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity === 0.3) as THREE.Mesh[];
+    MB.cel.set('hybrid', () => { bornT = 0; born.visible = true; born.scale.setScalar(0.01); });
     anim((dt, t) => {
-      for (const m of bubbles) { m.position.y += dt * 1.6; if (m.position.y > b.F + 6) m.position.y = b.F + 0.9; m.position.x = m.userData.x0 + Math.sin(t * 4 + m.position.y) * 0.1; }
+      if (bornT >= 0) {   // a new clone pops out of the last vat and walks off towards the elevator
+        bornT += dt; const p = Math.min(1, bornT / 4.5); born.scale.setScalar(Math.min(0.85, bornT * 2.5)); born.position.x = b.xF - 4 - p * (b.xF - 4 - CORE - 0.5); born.position.y = b.F + Math.abs(Math.sin(t * 8)) * 0.1;
+        liquids.forEach(l => { (l.material as THREE.MeshBasicMaterial).opacity = 0.3 + Math.max(0, 0.4 - bornT * 0.4); }); if (p >= 1) { bornT = -1; born.visible = false; }
+      }
+      bubbles.forEach((m, i) => { m.y += dt * 1.6; if (m.y > b.F + 6) m.y = b.F + 0.9; bub.setMatrixAt(i, _bm.makeTranslation(m.x0 + Math.sin(t * 4 + m.y) * 0.1, m.y, m.z)); }); bub.instanceMatrix.needsUpdate = true;
       flow.forEach((f, i) => { f.position.x = x0 + 0.5 + ((t * 3 + i * 4.5) % (b.xC - x0 - 1)); });
       walkers.forEach((w, i) => { const p = ((t * 0.09 + i / 3) % 1); w.position.x = b.xF - 4 - p * (b.xF - 4 - x0 - 0.5); w.position.y = b.F + Math.abs(Math.sin(t * 8 + i)) * 0.08; w.visible = p < 0.97; });
     });
@@ -317,10 +364,10 @@ const PROPS: Partial<Record<RoomId, (k: Kit, b: RoomBox) => void>> = {
       k.add(box(cw - 1.4, 0.6, 1.3), pal[i], { p: [xc, b.F + 0.5, -D + 1.5] }); k.add(box(cw - 1.4, 1.1, 0.4), pal[i], { p: [xc, b.F + 1.1, -D + 0.85] });   // couch
       k.add(box(1.4, 0.5, 2.2), '#fff6e0', { p: [xa + 1.2, b.F + 0.25, -D + 3.6] });   // a bed
       k.add(sph(0.18, 6, 4), PAL.poster, { p: [xc, b.top - 0.6, -D + 2], m: 'glow', k: 2 });
-      for (let j = 0; j < 2; j++) { const hm = human(g, i * 2 + j, xc + (j ? 0.9 : -0.9), b.F + 0.45, -D + 1.6, 0); if (!hm) continue; const ph = i * 2 + j; anim((dt, t) => { hm.rotation.y = Math.sin(t * 0.7 + ph) * 0.45; hm.position.y = b.F + 0.45 + Math.abs(Math.sin(t * 2 + ph)) * 0.08; }); }
+      for (let j = 0; j < (LOW() ? 1 : 2); j++) { const hm = human(g, i * 2 + j, xc + (j ? 0.9 : -0.9), b.F + 0.45, -D + 1.6, 0); if (!hm) continue; const ph = i * 2 + j; anim((dt, t) => { hm.rotation.y = Math.sin(t * 0.7 + ph) * 0.45; hm.position.y = b.F + 0.45 + Math.abs(Math.sin(t * 2 + ph)) * 0.08; }); }
     }
     // one guest paces the middle cell and rattles the bars
-    const pacer = human(g, 6, x0 + 0.5 + cw * 1.5, b.F, -4.2, 0); if (pacer) pace(pacer, x0 + 0.5 + cw + 1, x0 + 0.5 + cw * 2 - 1, b.F, -4, 0.6);
+    const pacer = LOW() ? null : human(g, 6, x0 + 0.5 + cw * 1.5, b.F, -4.2, 0); if (pacer) pace(pacer, x0 + 0.5 + cw + 1, x0 + 0.5 + cw * 2 - 1, b.F, -4, 0.6);
     // the TV, the guard, and the pizza drone doing its rounds
     k.add(box(3, 1.8, 0.3), DARK, { p: [(x0 + b.xF) / 2, b.top - 1.8, -1.6] });
     const tv = new THREE.Mesh(track(new THREE.PlaneGeometry(2.6, 1.4)), track(new THREE.MeshBasicMaterial({ color: '#ff6fb5', toneMapped: false }))); tv.position.set((x0 + b.xF) / 2, b.top - 1.8, -1.4); tv.userData.noInk = true; g.add(tv);
@@ -347,14 +394,17 @@ const PROPS: Partial<Record<RoomId, (k: Kit, b: RoomBox) => void>> = {
     // conveyor at the back bringing parts, a crane on a rail, a rotating hazard beacon, workers
     k.add(box(b.xF - x0 - 1.5, 0.6, 1.4), '#2f2a48', { p: [(x0 + b.xF) / 2, b.F + 0.3, -D + 1], m: 'metal' });
     const parts: THREE.Object3D[] = [];
-    for (let i = 0; i < 5; i++) parts.push(put(g, cachedModel('shipPart' + (i % 2), kk => { if (i % 2) kk.add(cyl(0.8, 0.8, 0.4, 12), WHITE, { m: 'metal' }); else kk.add(box(1.2, 0.6, 1), STEEL, { m: 'metal' }); }), x0 + 1 + i * 4, b.F + 0.9, -D + 1));
+    for (let i = 0; i < (LOW() ? 2 : 5); i++) parts.push(put(g, cachedModel('shipPart' + (i % 2), kk => { if (i % 2) kk.add(cyl(0.8, 0.8, 0.4, 12), WHITE, { m: 'metal' }); else kk.add(box(1.2, 0.6, 1), STEEL, { m: 'metal' }); }), x0 + 1 + i * 4, b.F + 0.9, -D + 1));
     k.add(box(b.xC - x0 - 1, 0.4, 0.4), '#4a4466', { p: [(x0 + b.xC) / 2, b.top - 1.3, -6.5], m: 'metal' });
     const crane = put(g, cachedModel('craneHook', kk => { kk.add(box(1.2, 0.6, 1.2), '#ffd23f', { m: 'metal' }); kk.add(cyl(0.06, 0.06, 2.6, 4), '#1a1033', { p: [0, -1.6, 0] }); kk.add(box(0.8, 0.5, 0.8), WHITE, { p: [0, -3, 0], m: 'metal' }); }), xc, b.top - 1.7, -6.5);
     const beacon = put(g, cachedModel('beacon', kk => { kk.add(cyl(0.3, 0.3, 0.4, 8), '#4a4466', { m: 'metal' }); kk.add(box(0.5, 0.25, 0.12), '#ff9a3c', { p: [0.25, 0.3, 0], m: 'glow', k: 3 }); kk.add(box(0.5, 0.25, 0.12), '#ff9a3c', { p: [-0.25, 0.3, 0], m: 'glow', k: 3 }); }, false), x0 + 1.4, b.top - 0.7, -1);
     const w1 = alien(g, x0 + 2, b.F, -2.4, 0, 0.88); pace(w1, x0 + 1.5, b.xF - 2, b.F, -2.2, 0.28);
     alien(g, bx + 2.6, b.F, -3.4, -0.8, 0.88);
-    let sparkT = 0, spark2 = 0;
+    let sparkT = 0, spark2 = 0, pop = 0;
+    MB.cel.set('shipyard', () => { pop = 1; ship.getWorldPosition(_tw2); FX.ring(_tw2, 5, 0.6, FXC.poster); FX.spark(_tw2, FXC.poster, 24, 10, 0.3, 0.8, -8); });
     anim((dt, t) => {
+      pop = Math.max(0, pop - dt * 1.4); ship.scale.setScalar((hasModel('b_saucer') ? 1.3 : 1.7) * (1 + Math.sin(pop * Math.PI * 3) * pop * 0.25));
+      if (pop > 0.5) ship.rotation.y += dt * 8;
       const up = (Math.sin(t * 0.45) + 1) / 2; lift.position.y = b.F + 0.8 + up * 1.4; ship.position.y = lift.position.y + 1.4; ship.rotation.y += dt * 0.4;
       arms.forEach((a, i) => { a.arm.rotation.x = -0.25 + Math.sin(t * 2.2 + i * 2) * 0.25; a.base.rotation.y = (i ? -1 : 1) * Math.PI / 2 + Math.sin(t * 1.4 + i) * 0.35; });
       arm3.arm.rotation.x = -0.1 + Math.sin(t * 3) * 0.2; arm3.base.rotation.y = Math.PI / 3 + Math.sin(t * 0.9) * 0.4; frame.rotation.y += dt * 0.25;
@@ -375,7 +425,7 @@ const PROPS: Partial<Record<RoomId, (k: Kit, b: RoomBox) => void>> = {
     for (let i = 0; i < 3; i++) k.add(cyl(0.6, 0.6, 1.4, 10), PAL.rBiomass, { p: [b.xF - 2 - i * 1.3, b.F + 0.7, -2.6], m: 'gloss' });
     // the artifact shelf (Earth snacks the Council loves)
     k.add(box(Math.min(12, b.xC - x0 - 2), 0.3, 1.2), '#7a5a3a', { p: [x0 + 1 + Math.min(12, b.xC - x0 - 2) / 2, b.top - 2.4, -D + 0.9] });
-    ARTIFACTS.slice(0, 6).forEach((a, i) => { if (hasModel(a) && x0 + 2 + i * 2 < b.xC - 1) { const o = put(g, instance(a).root, x0 + 2 + i * 2, b.top - 2.2, -D + 0.9, 1.4); anim(dt => { o.rotation.y += dt * 0.6; }); } });
+    ARTIFACTS.slice(0, LOW() ? 0 : 6).forEach((a, i) => { if (hasModel(a) && x0 + 2 + i * 2 < b.xC - 1) { const o = put(g, instance(a).root, x0 + 2 + i * 2, b.top - 2.2, -D + 0.9, 1.4); anim(dt => { o.rotation.y += dt * 0.6; }); } });
     // the teleport pad: loot beamed up from Earth materializes here, rides the belt to the stacks
     k.add(cyl(1.6, 1.8, 0.4, 18), '#4a4466', { p: [x0 + 2.4, b.F + 0.2, -3.5], m: 'metal' });
     const padGlow = glow(g, new THREE.CylinderGeometry(1.4, 1.4, 0.06, 18), PAL.slime, 2, x0 + 2.4, b.F + 0.45, -3.5);
@@ -404,7 +454,7 @@ const PROPS: Partial<Record<RoomId, (k: Kit, b: RoomBox) => void>> = {
     const statue = put(g, makeZix(), b.xF - 1.8, b.F + 1.2, -6, 1.5); statue.traverse((o: any) => { if (o.isMesh && o.material?.vertexColors) { o.material = o.material.clone(); o.material.color = new THREE.Color('#ffd23f'); } });
     k.add(box(2.4, 1.2, 2.4), WHITE, { p: [b.xF - 1.8, b.F + 0.6, -6], m: 'metal' });
     for (const x of [x0 + 4.4, x0 + 8]) { k.add(box(1.6, 3, 0.1), '#6a3fe0', { p: [x, b.top - 2.4, -D + 0.3] }); k.add(sph(0.35, 8, 6), PAL.slime, { p: [x, b.top - 2.2, -D + 0.4], m: 'glow', k: 1.8 }); }
-    const guide = alien(g, x0 + 2, b.F, -2, 0, 0.9), kids = [0, 1].map(() => alien(g, x0 + 1, b.F, -2, 0, 0.6));
+    const guide = alien(g, x0 + 2, b.F, -2, 0, 0.9), kids = (LOW() ? [] : [0, 1]).map(() => alien(g, x0 + 1, b.F, -2, 0, 0.6));
     anim((dt, t) => {
       tops.forEach(o => { o.rotation.y += dt * 0.5; }); beams.forEach((s, i) => { s.rotation.z = Math.sin(t * 0.8 + i * 2) * 0.12; });
       const s = Math.sin(t * 0.3), dir = Math.cos(t * 0.3) > 0 ? Math.PI / 2 : -Math.PI / 2, gx = x0 + 2 + (s * 0.5 + 0.5) * (b.xF - x0 - 6);
@@ -445,40 +495,84 @@ function buildExterior(root: THREE.Group) {
   root.add(k.build(g => G.disposables.push(g)));
   const dome = new THREE.Mesh(track(new THREE.SphereGeometry(4.6, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2)), glass()); dome.position.set(0, R, -4); dome.userData.noInk = true; root.add(dome);
   put(root, makeZix(), 0, R, -4, 1.1);
-  for (let i = 0; i < 5; i++) { const d = miniSaucer(); d.scale.setScalar(1.3); root.add(d); MB.orbit.push({ o: d, a: i * 1.3, r: R + 9 + (i % 3) * 4, y: -10 + i * 5, s: 0.25 + (i % 2) * 0.12 }); }
+  for (let i = 0; i < (QUALITY === 'low' ? 2 : 5); i++) { const d = miniSaucer(); d.scale.setScalar(1.3); root.add(d); MB.orbit.push({ o: d, a: i * 1.3, r: R + 9 + (i % 3) * 4, y: -10 + i * 5, s: 0.25 + (i % 2) * 0.12 }); }
 }
 
 // ------------------------------------------------------------------ tags, camera, per frame
+const SHORT: Record<RoomId, string> = { bridge: 'Bridge', research: 'Research', hybrid: 'Hybrid Lab', cells: 'Guests', shipyard: 'Shipyard', storage: 'Vault', trophy: 'Trophies', armory: 'Armory', reactor: 'Reactor' };
 function makeLabels() {
   let box = document.getElementById('moon-labels'); if (!box) { box = document.createElement('div'); box.id = 'moon-labels'; document.body.appendChild(box); box.addEventListener('click', onLabelClick); }
-  box.innerHTML = '<button class="moon-back" hidden>Back</button>'; MB.labels.clear(); box.hidden = false;
-  for (const id of ROOM_IDS) { const el = document.createElement('button'); el.className = 'moon-label'; el.dataset.room = id; el.innerHTML = `<b>${ROOMS[id].name}</b>`; el.title = ROOMS[id].job; box.appendChild(el); MB.labels.set(id, el); }
+  box.innerHTML = ''; MB.labels.clear(); box.hidden = false;
+  const bar = document.getElementById('moon-rooms');
+  if (bar) { bar.innerHTML = ROOM_IDS.map(id => `<button class="btn small" id="rb-${id}" data-room="${id}">${SHORT[id]}</button>`).join('');
+    if (!bar.dataset.wired) { bar.dataset.wired = '1'; bar.addEventListener('click', e => { const t = (e.target as HTMLElement).closest('button') as HTMLButtonElement; if (t?.dataset.room && G.mode === 'moonbase') focusRoom(t.dataset.room as RoomId); }); } }
+  for (const id of ROOM_IDS) { const el = document.createElement('button'); el.className = 'moon-label'; el.id = 'ml-' + id; el.dataset.room = id; el.innerHTML = `<b>${ROOMS[id].name}</b>`; el.title = ROOMS[id].job; box.appendChild(el); MB.labels.set(id, el); }
 }
+/** Outlines only where they can be seen: the room the camera is in (the shell and faces always keep theirs). */
+function applyInk() {
+  for (const [id, g] of MB.groups) setInk(g, MB.focus === id);
+  if (MB.focus === 'reactor') { for (const id of ['hybrid', 'cells'] as RoomId[]) setInk(MB.groups.get(id), true); }
+  for (const o of MB.life) setInk(o, false);
+}
+/** A tap on the moon opens the room under the finger (the reactor shaft too). */
+function onPick(e: PointerEvent) {
+  if (G.mode !== 'moonbase' || !MB.down || Math.hypot(e.clientX - MB.down.x, e.clientY - MB.down.y) > 8 || document.querySelector('#meta-modal:not([hidden])')) return;
+  const ndc = new THREE.Vector2(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); MB.ray.setFromCamera(ndc, camera);
+  const targets: [RoomId, THREE.Object3D][] = [...MB.groups.entries()]; if (MB.reactor) targets.push(['reactor', MB.reactor]);
+  let best: RoomId | null = null, bd = Infinity;
+  for (const [id, g] of targets) { const hit = MB.ray.intersectObject(g, true)[0]; if (hit && hit.distance < bd) { bd = hit.distance; best = id; } }
+  if (best && best !== MB.focus) focusRoom(best);
+}
+function onKey(e: KeyboardEvent) { if (e.key === 'Escape' && G.mode === 'moonbase' && MB.focus) focusRoom(null); }
 function onLabelClick(e: Event) {
   const t = (e.target as HTMLElement).closest('button') as HTMLButtonElement; if (!t) return;
-  if (t.classList.contains('moon-back')) focusRoom(null); else if (t.dataset.room) focusRoom(t.dataset.room as RoomId);
+  if (t.dataset.room && G.mode === 'moonbase') focusRoom(t.dataset.room as RoomId);
 }
 /** Fly the camera into a room (or back out to the whole moon with null). */
 export function focusRoom(id: RoomId | null, instant = false) {
   const v = id ? MB.views.get(id) : MB.home; if (!v) return;
-  MB.focus = id; const c = MB.cam;
+  MB.focus = id; const c = MB.cam; c.dur = 1.1;
   c.from.copy(camera.position); c.lookFrom.copy(c.look); c.to.copy(v.pos); c.lookTo.copy(v.look); c.t = instant ? 1 : 0;
+  if (id) {   // leave room for the panel: it sits on the right (landscape) or at the bottom (portrait)
+    const dir = _tw2.copy(v.look).sub(v.pos).normalize(), right = new THREE.Vector3().crossVectors(dir, camera.up).normalize(), portrait = camera.aspect < 1;
+    const off = portrait ? new THREE.Vector3(0, -10, 0) : right.multiplyScalar(8.5);
+    if (portrait) c.to.addScaledVector(dir, -14 / Math.max(0.45, camera.aspect));
+    c.to.add(off); c.lookTo.add(off);
+  }
+  $hint(!id); renderMoonPanel(); applyInk(); if (id) SFX.play('ui');
+  const bar = document.getElementById('moon-rooms'); if (bar) { for (const b of bar.querySelectorAll('button')) b.classList.toggle('on', (b as HTMLElement).dataset.room === id); }
   if (instant) { camera.position.copy(v.pos); c.look.copy(v.look); camera.lookAt(c.look); }
-  const back = document.querySelector('#moon-labels .moon-back') as HTMLElement; if (back) back.hidden = !id;
 }
 export function leaveMoonBase() { const b = document.getElementById('moon-labels'); if (b) b.hidden = true; }
+/** Called every frame by main.ts: the room tags only exist while the moon base is on screen. */
+export function syncMoonUI() { if (G.mode !== 'moonbase') { const b = document.getElementById('moon-labels'); if (b && !b.hidden) { b.hidden = true; document.body.classList.remove('in-moon'); } } }
+/** First visit: learn the base room by room (replaces the old mothership tutorial). */
+export function startMoonTutorial(done: () => void, skip: () => void) {
+  const s = G.save, gift = { humans: 3, biomass: 12, metal: 10 };
+  for (const r of ['humans', 'biomass', 'metal'] as const) s.res[r] = Math.max(s.res[r], gift[r]);   // a starter gift so the first purchases are possible
+  renderMoonPanel();
+  TUT.start('Moon Base', [
+    { text: 'Welcome to the <b>Moon Base</b>, Commander! The moon is our ship. Tap the <b>Hybrid Lab</b> to go inside.', highlight: 'ml-hybrid', check: () => MB.focus === 'hybrid' },
+    { text: 'Spend the biomass you collected: <b>build a Gray Clone</b> for your army.', highlight: 'btn-build-clone', check: () => s.army.clone >= 1 },
+    { text: 'Now visit the <b>Research Lab</b>: tap <b>Research</b> in the row of rooms.', highlight: 'rb-research', check: () => MB.focus === 'research' },
+    { text: '<b>Upgrade your tractor beam</b> so it can lift heavier things.', highlight: 'btn-up-beam', check: () => s.up.beam >= 1 },
+    { text: 'Good! Head <b>to Earth</b> and choose your next target.', highlight: 'btn-moon-earth', check: () => G.mode === 'globe' },
+  ], done, skip);
+}
 const _p = new THREE.Vector3();
 export function updateMoonBase(dt: number) {
   const t = G.time;
   for (const a of MB.anims) a.fn(dt, t);
   for (const s of MB.orbit) { s.a += dt * s.s; s.o.position.set(Math.cos(s.a) * s.r, s.y + Math.sin(s.a * 2) * 2, Math.sin(s.a) * s.r - 6); s.o.rotation.y = -s.a; s.o.rotation.z = 0.15; }
   const c = MB.cam;
-  if (c.t < 1) { c.t = Math.min(1, c.t + dt / 1.1); const e = c.t * c.t * (3 - 2 * c.t); camera.position.lerpVectors(c.from, c.to, e); c.look.lerpVectors(c.lookFrom, c.lookTo, e); camera.lookAt(c.look); }
+  if (c.t < 1) { c.t = Math.min(1, c.t + dt / c.dur); const e = c.t * c.t * (3 - 2 * c.t); camera.position.lerpVectors(c.from, c.to, e); c.look.lerpVectors(c.lookFrom, c.lookTo, e); camera.lookAt(c.look); }
   const W = innerWidth, H = innerHeight;
   for (const [id, el] of MB.labels) {
     const a = MB.anchors.get(id); if (!a) continue;
-    const show = !MB.focus || MB.focus === id; if (el.hidden === show) el.hidden = !show;
+    const show = !MB.focus; if (el.hidden === show) el.hidden = !show;   // inside a room the room bar takes over
     _p.copy(a).project(camera);
-    el.style.transform = `translate(${((_p.x * 0.5 + 0.5) * W).toFixed(0)}px, ${((-_p.y * 0.5 + 0.5) * H).toFixed(0)}px) translate(-50%, -50%)`;
+    let x = (_p.x * 0.5 + 0.5) * W, y = (-_p.y * 0.5 + 0.5) * H;
+    if (_p.z > 1) { x = W - x; y = H - y; }   // behind the camera: mirror so it still points the right way
+    el.style.transform = `translate(${x.toFixed(0)}px, ${y.toFixed(0)}px) translate(-50%, -50%)`;
   }
 }

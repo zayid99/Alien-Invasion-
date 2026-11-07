@@ -17,7 +17,7 @@ export const numHTML = (v: string | number, n = String(v).length) => `<span clas
 export function replayClass(el: Element, cls: string) { el.classList.remove(cls); void (el as HTMLElement).offsetWidth; el.classList.add(cls); }
 const wait = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
-const SCREENS = ['scr-title', 'scr-summary', 'scr-mothership', 'scr-pause', 'scr-end'];
+const SCREENS = ['scr-title', 'scr-summary', 'scr-moon', 'scr-pause', 'scr-end'];
 const cache: Record<string, string> = {};
 
 // ---- Commander Zix typing state: the full line is laid out at once (so the balloon never resizes) and the

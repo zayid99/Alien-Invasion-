@@ -511,7 +511,7 @@ export function renderPanel() {
         <dl class="kv"><dt>Resistance</dt><dd>${Math.round(st.res || 0)}% ${resBar(st.res || 0)}</dd><dt>Garrison</dt><dd>${st.garrison || 0} units</dd><dt>Tribute today</dt><dd>${(() => { const t = cityTribute(c); return RES.filter(r => t[r]).map(r => `${t[r]} ${r}`).join(', ') || 'none'; })()}</dd></dl>
         <p class="sub">${st.revolt ? `Run an abduction night in ${r.name} to restore order.` : `Resistance grows every day. A night in ${r.name} calms it.`}</p>` : `<dl class="kv"><dt>City size</dt><dd>${'★'.repeat(c.size)}</dd><dt>Defense level</dt><dd>${L}</dd><dt>Earth power</dt><dd>${them}</dd><dt>Your army</dt><dd>${us}</dd>${st.attempts ? `<dt>Failed attempts</dt><dd>${st.attempts}</dd>` : ''}</dl>
       <p><span class="tag ${v.cls}">${v.text}</span></p>`}
-      <div class="row"><button class="btn" data-act="back">Back</button>${!st.occupied && open ? `<button class="btn" data-act="ms">Mothership</button><button class="btn primary" data-act="invade" id="btn-invade-city">Invade</button>` : ''}</div>`;
+      <div class="row"><button class="btn" data-act="back">Back</button>${!st.occupied && open ? `<button class="btn" data-act="ms">Moon Base</button><button class="btn primary" data-act="invade" id="btn-invade-city">Invade</button>` : ''}</div>`;
   } else {
     const r = regionById(sel.id), open = regionUnlocked(r), cities = CITIES.filter(c => c.region === r.id), sites = s.sites.filter(x => x.region === r.id);
     h = `<div><div class="eyebrow">${r.continent}</div><h3>${r.name}</h3><p class="sub">${BIOMES[r.biome].name} · ${open ? `regional alert ${Math.round(regionState(r.id).alert)}%` : `locked until ${TIER_NAMES[r.tier]} unlocks`}</p></div>

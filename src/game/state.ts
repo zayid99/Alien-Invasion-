@@ -31,6 +31,8 @@ export const G = {
   pendingEnding: false,
   /** what happened while the player was away (shown on the globe once) */
   pendingAway: null as import('./campaign').AwayReport | null,
+  /** the moon's fly-in plays once per session */
+  moonSeen: false,
   world: null as THREE.Group | null,
   ents: [] as Entity[],
   obstacles: [] as Footprint[],

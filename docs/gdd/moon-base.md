@@ -46,6 +46,13 @@ walking the ledges, elevator capsules running between floors.
 4. Each purchase plays its room animation.
 5. Low graphics overview ≤ 250 draw calls; no console errors.
 
-## Status
-- Layout chosen: wedge. Rooms enlarged and detailed (7 Nov 2026). Camera fly-in per room works (tap a tag, Back).
-- Next: wire it into the game as the home screen with the rooms' real functions.
+## Status (v0.5.0, 7 Nov 2026)
+- Built and in the game: the Moon Base replaces the mothership. After the training night the moon flies in and its
+  tutorial runs (Hybrid Lab → build a clone → Research Lab → upgrade the beam → To Earth). Continue lands on the moon.
+- Tap a room (in 3D or its tag) to fly in; the room panel opens (right side, bottom sheet in portrait) with a row of
+  room buttons to hop between rooms; Back or Esc flies out.
+- Purchases play in the room: a clone climbs out of a vat and walks off (Hybrid Lab), the saucer on the lift spins and
+  bursts with sparks (Shipyard), the DNA hologram spins up (Research Lab), with a caption.
+- Budget: overview 256 draw calls on low graphics (outlines only on the room you are in, batched bubbles and DNA,
+  fewer background actors on low); 422 on high.
+- Acceptance checks: e2e walks training → Moon Base tutorial → build → upgrade → To Earth.

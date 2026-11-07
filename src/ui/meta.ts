@@ -61,7 +61,7 @@ export function maybeShowDailyDrop(after?: () => void) {
     return `<div class="drop ${state}${i === 6 ? ' big' : ''}"><span class="d">Day ${day}</span><div class="w">${wtags(streakReward(day))}</div>${state === 'got' ? '<i class="tick">✓</i>' : ''}</div>`;
   }).join('');
   openModal('Daily supply drop', next > 1 ? `Day ${next} in a row!` : 'Welcome back, Commander', `
-    <p class="sub">The mothership sends supplies every day. Come back tomorrow to keep the streak going. Day 7 is a big one!</p>
+    <p class="sub">The Moon Base sends supplies every day. Come back tomorrow to keep the streak going. Day 7 is a big one!</p>
     <div class="drops">${tiles}</div>
     <div class="row" style="justify-content:center;margin-top:14px"><button class="btn reward" id="btn-claim2" hidden></button><button class="btn slime" id="btn-claim">Claim day ${next}</button></div>`, false, after || null);
   offer($<HTMLButtonElement>('btn-claim2'), `Claim ×2`, () => {
@@ -181,14 +181,14 @@ export function nextGoalsHTML() {
   const u = ups[0];
   if (u) {
     const U = UPGRADES[u.k], lvl = s.up[u.k] + 2;
-    if (canAfford(s.res, u.c)) goals.push(`<b>Upgrade ${U.name} to level ${lvl}</b> on the mothership. You can afford it now!`);
+    if (canAfford(s.res, u.c)) goals.push(`<b>Upgrade ${U.name} to level ${lvl}</b> in the Research Lab. You can afford it now!`);
     else goals.push(`<b>${U.name} level ${lvl}</b>: ${RES.filter(r => (u.c[r] || 0) > s.res[r]).map(r => `${(u.c[r] || 0) - Math.floor(s.res[r])} more ${r}`).join(', ')}.`);
   }
   const city = CITIES.filter(c => regionUnlocked(regionById(c.region)) && !cityState(c.id).occupied).sort((a, b) => cityLevel(a) - cityLevel(b))[0];
   if (city) {
     const us = armyPower(), them = earthPower(cityLevel(city));
     goals.push(us >= them ? `<b>Invade ${city.name}!</b> Your army (${us}) is stronger than its defense (${them}).`
-      : `<b>Conquer ${city.name}</b>: build ${them - us} more army power on the mothership.`);
+      : `<b>Conquer ${city.name}</b>: build ${them - us} more army power in the Moon Base.`);
   }
   if (specimensFound() < SPECIMENS.length) goals.push(`<b>Specimens found: ${specimensFound()}/${SPECIMENS.length}.</b> Each new kind pays a bonus.`);
   if (!goals.length) return '';

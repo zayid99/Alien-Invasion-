@@ -1,5 +1,5 @@
 // Smoke test: serves dist/, checks a new player lands straight in the training night, plays the tutorial,
-// goes on to the mothership, and fails on console errors.
+// goes on to the Moon Base (builds a clone, upgrades the beam, heads to Earth), and fails on console errors.
 // Needs: npm install --save-dev playwright && npx playwright install chromium   (then: npm run build && npm test)
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -34,12 +34,23 @@ try {
   const mode = await page.evaluate(() => window.__AI.G.mode);
   if (mode !== 'summary') errors.push(`expected the training report, got "${mode}"`);
   else {
-    await page.click('#btn-sum-next'); await sleep(6000);
+    await page.click('#btn-sum-next'); await sleep(7000);
     const next = await page.evaluate(() => window.__AI.G.mode);
-    if (next !== 'mothership') errors.push(`expected the mothership after training, got "${next}"`);
-    // the mothership tutorial's first purchases must be affordable right after training
-    const can = await page.evaluate(() => ({ clone: !document.getElementById('btn-build-clone')?.disabled, beam: !document.querySelector('[data-up="beam"]')?.disabled }));
-    if (!can.clone || !can.beam) errors.push(`first purchases not affordable after training: ${JSON.stringify(can)}`);
+    if (next !== 'moonbase') errors.push(`expected the Moon Base after training, got "${next}"`);
+    // the Moon Base tutorial: open the Hybrid Lab, build a clone, open the Research Lab, upgrade the beam
+    await page.click('#ml-hybrid'); await sleep(1500);
+    const clone = await page.evaluate(() => !document.getElementById('btn-build-clone')?.disabled);
+    if (!clone) errors.push('a Gray Clone should be affordable in the Hybrid Lab right after training');
+    else { await page.click('#btn-build-clone'); await sleep(800); }
+    await page.click('#rb-research'); await sleep(1500);
+    const beam = await page.evaluate(() => !document.querySelector('[data-up="beam"]')?.disabled);
+    if (!beam) errors.push('the beam upgrade should be affordable in the Research Lab right after training');
+    else { await page.click('[data-up="beam"]'); await sleep(800); }
+    const st = await page.evaluate(() => ({ clone: window.__AI.G.save.army.clone, beam: window.__AI.G.save.up.beam }));
+    if (st.clone < 1 || st.beam < 1) errors.push(`Moon Base purchases did not apply: ${JSON.stringify(st)}`);
+    await page.click('#btn-moon-earth'); await sleep(5000);
+    const g = await page.evaluate(() => window.__AI.G.mode);
+    if (g !== 'globe') errors.push(`To Earth should open the globe, got "${g}"`);
   }
   // --- regression checks (docs/STUDIO_REVIEW.md) ---
   // B: ending a night straight away pays no tribute and does not count as a finished night

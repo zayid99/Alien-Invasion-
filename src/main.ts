@@ -28,9 +28,10 @@ import { deployUnit } from './world/invasion';
 import { refreshSites, armyPower, earthPower, cityLevel, verdict, startNewGamePlus, applyAway } from './game/campaign';
 import { enterTitle, updateTitle } from './scenes/title';
 import { startMission, updateMission, endNight, missionHooks } from './scenes/mission';
-import { enterMothership, updateMothership, buildUnits, buyUpgrade } from './scenes/mothership';
-import { enterMoonBase, updateMoonBase } from './scenes/moonbase';
-import { enterGlobe, leaveGlobe, updateGlobe, globeHooks, globeSelection, hideLabels, refreshGlobe } from './scenes/globe';
+import { buildUnits, buyUpgrade, renderMoonPanel } from './ui/moonPanel';
+import { enterMoonBase, updateMoonBase, syncMoonUI, startMoonTutorial, focusRoom } from './scenes/moonbase';
+import { FINAL } from './data/campaign';
+import { enterGlobe, leaveGlobe, updateGlobe, globeHooks, globeSelection, hideLabels, refreshGlobe, select as selectOnGlobe } from './scenes/globe';
 import { startInvasion, updateInvasion, updateVictory, endInvasion, invasionScene } from './scenes/invasion';
 
 // ---------------- screen transitions (iris, docs/ART_STYLE.md §7) ----------------
@@ -72,15 +73,27 @@ function goGlobe() {
     { text: 'This is Earth! <b>Drag</b> to spin it. Glowing rings are abduction sites. <b>Tap one</b> (or pick it from the list).', check: () => globeSelection()?.type === 'site' },
     { text: 'Press <b>Launch night</b> to start your first real mission. This time Earth\'s army will fight back!', highlight: 'btn-launch-site', check: () => G.mode === 'mission' },
   ], () => { G.save.tutorial.done = true; rollDaily(); writeSave(G.save); refreshGlobe(); }, () => { G.save.tutorial.done = true; rollDaily(); writeSave(G.save); refreshGlobe(); });
-  else if (G.pendingEnding) { G.pendingEnding = false; checkAchievements(); showEnding(() => globeHooks.ngPlus(), () => { writeSave(G.save); refreshGlobe(); }); }
+  else arrivalCards(refreshGlobe);
+}
+/** On arriving at a home screen (globe or moon): the ending, "while you were away", then the daily drop. */
+function arrivalCards(refresh: () => void) {
+  const after = () => { writeSave(G.save); refresh(); };
+  if (G.pendingEnding) { G.pendingEnding = false; checkAchievements(); showEnding(() => globeHooks.ngPlus(), after); }
   else if (G.pendingAway) {
     const A = G.pendingAway; G.pendingAway = null; const h = A.hours >= 1 ? `${Math.floor(A.hours)} h` : `${Math.round(A.hours * 60)} min`;
     const gain = Object.entries(A.gain).filter(([, v]) => v).map(([k, v]) => `+${v} ${k}`).join(', ') || 'nothing yet';
     showCard('While you were away', `${h} later…`, `<p>Your cities kept paying tribute: <b>${gain}</b>.</p>${A.attacked ? `<p><b>Earth strikes back!</b> Resistance fighters rose in <b>${A.attacked}</b>. Run a night in its region to calm it.</p>` : ''}`,
-      () => maybeShowDailyDrop(() => { writeSave(G.save); refreshGlobe(); }));
-    writeSave(G.save); refreshGlobe();
+      () => maybeShowDailyDrop(after));
+    after();
   }
-  else maybeShowDailyDrop(() => { writeSave(G.save); refreshGlobe(); });
+  else maybeShowDailyDrop(after);
+}
+/** The Moon Base, home of the Gray Empire (docs/gdd/moon-base.md). The first visit flies in and starts its tutorial. */
+function goMoon() {
+  TUT.stop(); const s = G.save, first = !s.tutorial.done && s.tutorial.ms < 3;
+  writeSave(s); enterMoonBase({ intro: first || !G.moonSeen }); G.moonSeen = true;
+  if (first) startMoonTutorial(() => { s.tutorial.ms = 3; writeSave(s); }, () => { s.tutorial.done = true; s.tutorial.ms = 3; writeSave(s); });
+  else arrivalCards(renderMoonPanel);
 }
 function leaveGlobeIfOpen() {
   if (TUT.active && TUT.label === 'Earth') { G.save.tutorial.done = true; TUT.stop(); }   // leaving the globe completes its tutorial
@@ -90,11 +103,11 @@ function leaveGlobeIfOpen() {
 globeHooks.launchSite = (site: MissionSite) => { if (UI.irisClosing) return; UI.iris(() => { leaveGlobeIfOpen(); startMission(site); }, clickPoint()); };
 globeHooks.invade = (c: City) => {
   if (UI.irisClosing) return;
-  if (armyPower() <= 30 && !Object.values(G.save.army).some(n => n > 0)) { UI.toast('You have no army yet. Build units on the mothership first!', 'warn', 3); SFX.play('error'); return; }
+  if (armyPower() <= 30 && !Object.values(G.save.army).some(n => n > 0)) { UI.toast('You have no army yet. Build units in the Moon Base first!', 'warn', 3); SFX.play('error'); return; }
   UI.iris(() => { leaveGlobeIfOpen(); TUT.stop(); startInvasion(c); }, clickPoint());
 };
 globeHooks.ngPlus = () => { startNewGamePlus(); writeSave(G.save); UI.toast(`New Game+ ${G.save.ngPlus}: Earth is stronger. Good luck, Commander!`, 'good', 3); SFX.play('fanfare'); refreshGlobe(); };
-globeHooks.mothership = () => { if (UI.irisClosing) return; UI.iris(() => { leaveGlobeIfOpen(); TUT.stop(); enterMothership(); }, clickPoint($('btn-g-ms'))); };
+globeHooks.mothership = () => { if (UI.irisClosing) return; UI.iris(() => { leaveGlobeIfOpen(); TUT.stop(); goMoon(); }, clickPoint($('btn-g-ms'))); };
 missionHooks.summary = (title, html, note, tutorial) => {
   // The mode switches now (the night is over: no more input), the screen swaps behind the iris, closing on the saucer.
   G.mode = 'summary'; BEAM.hide();
@@ -104,7 +117,7 @@ missionHooks.summary = (title, html, note, tutorial) => {
   $('sum-title').textContent = title; $('sum-body').innerHTML = html; $('sum-note').textContent = note;
   $('sum-goals').innerHTML = tutorial ? '' : nextGoalsHTML();
   if (tutorial || !G.lastNight) $('btn-sum-reward').hidden = true; else nightOffers(G.lastNight.banked, G.lastNight.lost);
-  $('btn-sum-ms').hidden = tutorial; $('btn-sum-next').textContent = tutorial ? 'To the mothership' : 'Back to Earth';
+  $('btn-sum-ms').hidden = tutorial; $('btn-sum-next').textContent = tutorial ? 'To the Moon Base' : 'Back to Earth';
   UI.iris(() => { UI.hud(false); UI.hideComm(); UI.show('scr-summary'); }, saucerPoint());
 };
 invasionScene.done = () => writeSave(G.save);
@@ -121,8 +134,7 @@ function startNewGame(from?: { x: number; y: number }) { eraseSave(); G.save = n
 function continueGame(from?: { x: number; y: number }) {
   const s = loadSave(); if (s) G.save = s;
   UI.iris(() => {
-    if (G.save.tutorial.done || G.save.tutorial.ms >= 3) goGlobe();
-    else if (G.save.tutorial.ms >= 1) enterMothership();
+    if (G.save.tutorial.done || G.save.tutorial.ms >= 1) goMoon();   // returning players land on the moon
     else startMission(null, true);
   }, from);
 }
@@ -147,16 +159,24 @@ function wireUI() {
   click('btn-confirm-yes', e => { $('confirm-new').hidden = true; startNewGame(at(e)); });
   click('btn-confirm-no', () => { $('confirm-new').hidden = true; });
   click('btn-continue', e => { SFX.play('ui'); continueGame(at(e)); });
-  click('btn-sum-next', e => { SFX.play('ui'); if (G.save.tutorial.ms < 3 && !G.save.tutorial.done) UI.iris(enterMothership, at(e)); else betweenMissions(goGlobe, at(e)); });
-  click('btn-sum-ms', e => { SFX.play('ui'); betweenMissions(enterMothership, at(e)); });
-  click('ms-army', e => { const b = (e.target as HTMLElement).closest('[data-build]') as HTMLButtonElement; if (b && !b.disabled) buildUnits(b.dataset.build as UnitKey, +b.dataset.n); });
-  click('ms-upgrades', e => { const b = (e.target as HTMLElement).closest('[data-up]') as HTMLButtonElement; if (b && !b.disabled) buyUpgrade(b.dataset.up as UpgradeKey); });
-  click('btn-ms-earth', e => { SFX.play('ui'); UI.iris(goGlobe, at(e)); });
-  click('btn-ms-menu', e => { SFX.play('ui'); writeSave(G.save); UI.iris(() => { TUT.stop(); enterTitle(); }, at(e)); });
+  click('btn-sum-next', e => { SFX.play('ui'); if (G.save.tutorial.ms < 3 && !G.save.tutorial.done) UI.iris(goMoon, at(e)); else betweenMissions(goGlobe, at(e)); });
+  click('btn-sum-ms', e => { SFX.play('ui'); betweenMissions(goMoon, at(e)); });
+  click('mp-body', e => {   // Moon Base room panels
+    const b = (e.target as HTMLElement).closest('button') as HTMLButtonElement; if (!b || b.disabled) return;
+    if (b.dataset.build) buildUnits(b.dataset.build as UnitKey, +b.dataset.n);
+    else if (b.dataset.up) buyUpgrade(b.dataset.up as UpgradeKey);
+    else if (b.dataset.act === 'earth') { SFX.play('ui'); UI.iris(goGlobe, at(e)); }
+    else if (b.dataset.act === 'catalogue') { SFX.play('ui'); showCatalogue(); }
+    else if (b.dataset.act === 'achievements') { SFX.play('ui'); showAchievements(); }
+    else if (b.dataset.act === 'hangar') { SFX.play('ui'); showHangar(); }
+    else if (b.dataset.act === 'final') globeHooks.invade(FINAL.city as City);
+    else if (b.dataset.act === 'ngplus') { globeHooks.ngPlus(); renderMoonPanel(); }
+    else if (b.dataset.city) { const id = b.dataset.city; SFX.play('ui'); UI.iris(() => { goGlobe(); selectOnGlobe({ type: 'city', id }, true); }, at(e)); }
+  });
+  click('btn-mp-back', () => focusRoom(null));
+  click('btn-moon-earth', e => { SFX.play('ui'); UI.iris(goGlobe, at(e)); });
+  click('btn-moon-menu', e => { SFX.play('ui'); writeSave(G.save); UI.iris(() => { TUT.stop(); enterTitle(); }, at(e)); });
   click('btn-g-ms', () => globeHooks.mothership());
-  click('btn-cat', () => { SFX.play('ui'); showCatalogue(); });
-  click('btn-ach', () => { SFX.play('ui'); showAchievements(); });
-  click('btn-hangar', () => { SFX.play('ui'); showHangar(); });
   click('btn-g-menu', () => setPaused(true));
   click('pause-btn', () => setPaused(true));
   click('btn-resume', () => setPaused(false));
@@ -203,8 +223,7 @@ function step(dt: number) {
     case 'invasion': updateInvasion(dt); break;
     case 'victory': updateVictory(dt); break;
     case 'globe': updateGlobe(dt, G.time); TUT.tick(); break;
-    case 'mothership': updateMothership(dt, G.time); break;
-    case 'moonbase': updateMoonBase(dt); break;
+    case 'moonbase': updateMoonBase(dt); TUT.tick(); break;
     case 'summary': case 'end': {
       // While the iris closes, the finished night holds still under the old camera (no AI, shots or lifts: the
       // night is over and its cargo already banked); the slow report orbit starts behind the closed iris.
@@ -212,7 +231,7 @@ function step(dt: number) {
       const c = G.player?.pos ?? new THREE.Vector3(), a = G.time * 0.08; camera.position.set(c.x + Math.cos(a) * 70, 45, c.z + Math.sin(a) * 70); camera.lookAt(c.x, 4, c.z); break;
     }
   }
-  FX.update(dt);
+  syncMoonUI(); FX.update(dt);
 }
 function tick() {
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
@@ -267,7 +286,7 @@ async function boot(data?: { save?: any }) {
 
 // Handy for testing in the browser console, e.g. __AI.give(100). Left out of the CrazyGames build (no console cheats).
 if (PLATFORM !== 'crazygames') (window as any).__AI = {
-  USED, instance, endInvasion, CITY_DMG, damageBuildings, BEAM, renderFrame, abductEnt, raiseAlert, enterTitle, G, startMission, startInvasion, enterMothership, goGlobe, endNight, deployUnit, setQuality, INPUT, PROJ, renderer, camera, TUT, bankCargo, damagePlayer, enterMoonBase, armyPower, earthPower, cityLevel, verdict, applyAway, startNewGamePlus,
+  USED, instance, endInvasion, CITY_DMG, damageBuildings, BEAM, renderFrame, abductEnt, raiseAlert, enterTitle, G, startMission, startInvasion, goMoon, goGlobe, endNight, deployUnit, setQuality, INPUT, PROJ, renderer, camera, TUT, bankCargo, damagePlayer, enterMoonBase, armyPower, earthPower, cityLevel, verdict, applyAway, startNewGamePlus,
   give(n = 50) { for (const r of ['humans', 'biomass', 'metal'] as const) G.save.res[r] += n; writeSave(G.save); },
   simulate(sec: number, dt = 1 / 30) { for (let t = 0; t < sec; t += dt) { step(dt); INPUT.endFrame(); } },
   updateEnts: (dt: number) => updateEnts(dt, updateLift),

@@ -36,5 +36,5 @@ export const ROOM_MAX = 5;
 /** Speed multiplier for a room level (1, 1.25, 1.5 ...). */
 export const speed = (lv: number) => 1 + 0.25 * (lv - 1);
 /** Training queue length for a room level. */
-export const queueSize = (lv: number) => 4 + 2 * (lv - 1);
+export const queueSize = (lv: number) => 5 + 2 * (lv - 1);
 function sc(c: Cost, lv: number): Cost { const f = Math.pow(2, lv - 2); return Object.fromEntries(Object.entries(c).map(([r, v]) => [r, Math.round(v * f)])) as Cost; }

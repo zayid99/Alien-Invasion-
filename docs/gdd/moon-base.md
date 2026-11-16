@@ -56,3 +56,18 @@ walking the ledges, elevator capsules running between floors.
 - Budget: overview 256 draw calls on low graphics (outlines only on the room you are in, batched bubbles and DNA,
   fewer background actors on low); 422 on high.
 - Acceptance checks: e2e walks training → Moon Base tutorial → build → upgrade → To Earth.
+
+## Empire layer (v0.6.0, 16 Nov 2026): Clash of Clans style
+Room screen: the room plays in the centre window, controls around it (layout and reference images: `docs/ui/room-screen.md`).
+- **Training (Hybrid Lab, Shipyard):** units are paid up front and queue; each trains in a few seconds (clone 4 s, brute
+  6 s, saucer 10 s, walker 20 s at room level 1) on the real clock, so queues keep running during missions and while
+  away. Queue length 5 (+2 per room level). Tap the status block to cancel the last unit (full refund).
+- **Research (Research Lab):** one job at a time. Troop levels 2-5 raise hit points and damage (×1.15 / 1.32 / 1.52 /
+  1.75), used in battle and in army power; the lab's level caps troop level at lab level + 1. Saucer tech (beam, shield,
+  engine, ray, cargo) is research too (5 s for the first level).
+- **Room upgrades:** Hybrid Lab, Shipyard, Research Lab and Cargo Vault go to level 5, one at a time (the builder drone):
+  +25 % speed per level, longer queues, higher troop cap, +20 % daily supply drops per vault level.
+- **Life:** finished jobs play in the room (clone climbs out, saucer spins up, DNA whirls) or show a toast; the builder
+  drone's sparks fly in the room being upgraded; fun buttons (feed the guests, change channel, beam in, trophy tour, test
+  fire, reactor overload); UI blocks pop in, the window glows and scans, affordable buttons shimmer, bars stripe.
+- Tuning: `src/data/base.ts`. Logic: `src/game/base.ts`. UI: `src/ui/roomScreen.ts`.

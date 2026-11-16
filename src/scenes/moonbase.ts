@@ -552,8 +552,8 @@ export function focusRoom(id: RoomId | null, instant = false) {
   if (id) {   // leave room for the panel: it sits on the right (landscape) or at the bottom (portrait)
     const dir = _tw2.copy(v.look).sub(v.pos).normalize(), right = new THREE.Vector3().crossVectors(dir, camera.up).normalize(), portrait = camera.aspect < 1;
     // landscape: the room sits in the centre window, a step further back; portrait: the window is the upper half
-    const off = portrait ? new THREE.Vector3(0, -8, 0) : right.multiplyScalar(0);
-    c.to.addScaledVector(dir, portrait ? -14 / Math.max(0.45, camera.aspect) : -3.5); c.to.y += portrait ? 0 : 0.6;
+    const off = portrait ? new THREE.Vector3(0, -5.5, 0) : right.multiplyScalar(0);
+    c.to.addScaledVector(dir, portrait ? -7 / Math.max(0.45, camera.aspect) : -3.5); c.to.y += portrait ? 0 : 0.6;
     c.to.add(off); c.lookTo.add(off);
   }
   $hint(!id); renderMoonPanel(); applyInk(); if (id) SFX.play('ui');

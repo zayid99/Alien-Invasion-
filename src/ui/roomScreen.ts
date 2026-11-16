@@ -10,6 +10,7 @@ import { CITIES, regionById } from '../data/earth';
 import { ROOMS, ROOM_IDS } from '../data/moonbase';
 import type { RoomId } from '../data/moonbase';
 import { ROOM_UP, TROOP } from '../data/base';
+import { POWERS, POWER_IDS } from '../data/raid';
 import type { UpRoom } from '../data/base';
 import { armyPower, earthPower, cityLevel, cityState, regionUnlocked, verdict } from '../game/campaign';
 import { SPECIMENS, specimensFound, achievementsDone, ACHIEVEMENTS, artifactsFound } from '../game/meta';
@@ -76,9 +77,10 @@ const SPECS: Record<RoomId, () => Spec> = {
     main: { t: 'ACHIEVEMENTS', s: `${achievementsDone()}/${ACHIEVEMENTS.length}`, cls: 'slime', run: () => showAchievements() },
     b1: { t: 'SAUCER SKINS', s: `${SKINS.filter(k => !k.ach || G.save.ach[k.ach]).length}/${SKINS.length}`, run: () => showHangar() }, b2: { t: 'TOUR', s: 'join the guide', run: () => moonHooks.fun('trophy', 'tour') },
     status: () => ({ k: 'CONQUERED', v: `${G.save.totals.citiesTaken} cities · ${G.save.best.bosses} bosses`, p: Math.min(1, G.save.totals.citiesTaken / 60) }) }),
-  armory: () => ({ tip: 'Powers for city raids: EMP blast, gravity well, mind control, orbital laser. Opens with city raids.',
-    main: { t: 'LOCKED', s: 'opens with city raids', off: true }, b1: { t: 'TEST FIRE', s: 'shoot the cardboard tank', run: () => moonHooks.fun('armory', 'fire') }, b2: { t: '', hide: true },
-    status: () => ({ k: 'ARMORY', v: 'Coming in the next update', p: 0 }) }),
+  armory: () => ({ tip: 'Powers for city raids. Each Armory level gives one more Orbital Laser and EMP charge per raid.', up: 'armory',
+    main: { t: 'RAID POWERS', s: `${roomLevel('armory')} laser · ${roomLevel('armory')} EMP · 3 beacons`, cls: 'slime', run: powersPop },
+    b1: { t: 'TEST FIRE', s: 'shoot the cardboard tank', run: () => moonHooks.fun('armory', 'fire') }, b2: { t: '', hide: true },
+    status: () => ({ k: 'RAID CHARGES', v: `☄ ${POWERS.laser.charges(roomLevel('armory'))} · ⚡ ${POWERS.emp.charges(roomLevel('armory'))} · ⚑ ${POWERS.rally.charges(1)}`, p: roomLevel('armory') / 5 }) }),
   reactor: () => ({ tip: 'The reactor powers the whole moon. Energy for bigger rooms and ships arrives soon.',
     main: { t: 'OVERLOAD!', s: 'just for fun', cls: 'slime', run: () => moonHooks.fun('reactor', 'overload') }, b1: { t: '', hide: true }, b2: { t: '', hide: true },
     status: () => ({ k: 'BASE', v: `Day ${G.save.day} · army ${armyPower()}`, p: 1 }) }),
@@ -110,6 +112,10 @@ function saucerPop() {
 }
 function armyPop() {
   pop('My army', `<div class="rs-cards">${UNIT_KEYS.map(k => { const S = unitStats(k); return `<div class="rs-card"><b>${UNIT_TYPES[k].name} ×${G.save.army[k]}</b>${pips(unitLevel(k))}<small>HP ${S.hp} · DMG ${S.dmg}</small><small>power ${unitPowerLv(k)} each</small></div>`; }).join('')}</div><p class="sub">Total army power: <b>${armyPower()}</b></p>`);
+}
+function powersPop() {
+  const lv = roomLevel('armory');
+  pop('Raid powers', `<p class="sub">In a city raid, pick a power card and tap the city. Charges per raid come from the Armory's level (now ${lv}).</p><div class="rs-cards">${POWER_IDS.map(p => `<div class="rs-card"><b>${POWERS[p].icon} ${POWERS[p].name}</b><small>${POWERS[p].blurb}</small><small>${POWERS[p].charges(lv)} per raid</small></div>`).join('')}</div>`);
 }
 function warPop() {
   const tg = nextTarget(), us = armyPower(), them = tg ? earthPower(cityLevel(tg)) : 1, top = Math.max(us, them) * 1.1;

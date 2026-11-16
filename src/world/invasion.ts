@@ -122,6 +122,7 @@ function findAlienTarget(e: Entity, range: number, mode: 'any' | 'air' | 'ground
 }
 function brainTurret(e: Entity, dt: number) {
   if (smokeIfWrecked(e, dt)) return;
+  if (e.stun > 0) return;   // EMP
   e.retarget = (e.retarget || 0) - dt;
   if (e.retarget <= 0 || !e.target || e.target.dead || e.target.hp <= 0) { e.retarget = 0.5; e.target = findAlienTarget(e, DEFENDER.turret.range, 'air'); }
   const T = e.target; if (!T) { e.obj.rotation.y += dt * 0.4; return; }
@@ -184,6 +185,7 @@ function brainDefender(e: Entity, dt: number) {
 }
 function brainDefTank(e: Entity, dt: number) {
   if (smokeIfWrecked(e, dt)) { e.animSpeed = 0; return; }
+  if (e.stun > 0) { e.speed = 0; e.animSpeed = 0; return; }   // EMP
   e.retarget -= dt;
   if (e.retarget <= 0 || !e.target || e.target.dead || (e.target !== G.player && e.target.hp <= 0)) { e.retarget = 0.6; e.target = findAlienTarget(e, e.aggressive ? 110 : 60, 'any'); if (e.target && e.target.air) e.target = null; }
   const T = e.target; if (!T || (T === G.player && G.player.dead)) { e.speed = damp(e.speed, 0, 2, dt); e.animSpeed = 0; return; }
@@ -199,6 +201,7 @@ function brainDefTank(e: Entity, dt: number) {
   }
 }
 function brainMech(e: Entity, dt: number) {
+  if (e.stun > 0) { e.anim('idle'); return; }   // EMP
   e.retarget -= dt;
   if (e.retarget <= 0 || !e.target || e.target.dead || (e.target !== G.player && e.target.hp <= 0)) { e.retarget = 0.6; e.target = findAlienTarget(e, e.aggressive ? 100 : 60); }
   const T = e.target; if (!T || (T === G.player && G.player.dead)) { e.anim('idle'); return; }
@@ -286,6 +289,12 @@ function findEarthTarget(e: Entity, range: number) {
   return best;
 }
 /** Rally (F / RALLY button): send the army to the saucer's position (docs/gdd/invasion-command.md). */
+/** Rally at any point (the raid's Rally Beacon power). */
+export function setRallyAt(x: number, z: number) {
+  const I = G.inv; if (!I || I.over) return;
+  I.rally = { x, z, t: RALLY.time, ringT: 0 }; I.objective = null;
+  const tgt = rallyTarget(); UI.toast(tgt ? `Army: attack the ${tgt.kind === 'hq' ? 'HQ' : tgt.kind}!` : 'Army: rally here!', 'good', 1.6); SFX.play('deploy');
+}
 export function setRally() {
   const I = G.inv, P = G.player; if (!I || I.over || !P || P.dead) return;
   if (!G.ents.some(e => e.team === 'alien' && !e.dead && e.utype)) { UI.toast('No army to rally: drop units with 1-4', 'warn', 1.8); return; }
@@ -366,14 +375,14 @@ export function deployUnit(type: UnitKey) {
   spawnUnit(type, p.x, p.z, true); invasionHooks.onDeploy();
 }
 export function updateWaves(dt: number) {
-  const I = G.inv; if (I.hq.hp <= 0 || I.over) return;
+  const I = G.inv; if (I.hq.hp <= 0 || I.over || (I.raid && !I.raidStarted)) return;   // raids: reinforcements once the attack starts
   I.waveT -= dt; if (I.waveT > 0) return; I.waveT = I.F.waveEvery; I.waves++;
   for (let i = 0; i < I.F.waveSoldiers; i++) spawnDefender('soldier', rand(-8, 8), 20 + rand(0, 4), true);
   if (I.F.waveTankEvery && I.waves % I.F.waveTankEvery === 0) { const p = pick(G.entries); spawnDefender(I.L >= 5 && chance(0.4) ? 'mech' : 'tank', p.x, p.z, true); }
   UI.toast('Earth reinforcements are coming out of the HQ', 'warn', 2.2);
 }
 /** Place Earth's defenders and land your army. Returns the invasion state. */
-export function setupInvasion(L: number) {
+export function setupInvasion(L: number, raid = false) {
   const F = earthForces(L);
   const I = G.inv = { L, F, waveT: F.waveEvery, waves: 0, flows: new Map(), over: false, objective: null as Entity, center: new V3(0, 0, 140), grid: null as any,
     hq: null as Entity, pylons: [] as Entity[], pylonsLeft: 3, boss: null as { name: string } | null, bossEnt: null as Entity, stats: { humans: 0, animals: 0, vehicles: 0, artifacts: 0, lost: 0, killed: 0, surrendered: 0, deployed: 0, buildings: 0, startArmy: { ...G.save.army } } };
@@ -387,7 +396,7 @@ export function setupInvasion(L: number) {
   const tankSpots = [[0, 75], [-25, 50], [25, 50], [-75, 75], [75, 75], [0, 25], [-25, -25], [25, -25]];
   for (let i = 0; i < F.tanks; i++) { const [x, z] = tankSpots[i % 8]; const t = spawnDefender(L >= 4 && i % 3 === 2 ? 'mech' : 'tank', x, z); t.heading = Math.PI; t.obj.rotation.y = Math.PI; }
   let i = 0;
-  for (const [k, n] of Object.entries(G.save.army)) for (let j = 0; j < n; j++, i++) spawnUnit(k as UnitKey, ((i % 14) - 6.5) * 4.5 + rand(-1, 1), 136 + Math.floor(i / 14) * 4 + rand(-1, 1));
+  if (!raid) for (const [k, n] of Object.entries(G.save.army)) for (let j = 0; j < n; j++, i++) spawnUnit(k as UnitKey, ((i % 14) - 6.5) * 4.5 + rand(-1, 1), 136 + Math.floor(i / 14) * 4 + rand(-1, 1));
   return i;
 }
 /** Per-frame invasion upkeep: army centre, dome + pylon visuals. */
@@ -399,7 +408,7 @@ export function tickInvasion(dt: number) {
     const o = I.objective; if (R.t <= 0 || (o && !o.rallyPoint && (o.dead || o.hp <= 0))) { I.rally = null; I.objective = null; }
   }
   for (const e of G.ents) if (e.team === 'alien' && !e.dead) { I.center.add(e.pos); n++; }
-  if (n) I.center.multiplyScalar(1 / n); else I.center.copy(G.player.pos);
+  if (n) I.center.multiplyScalar(1 / n); else if (!I.raid) I.center.copy(G.player.pos);
   const hq = I.hq, dome = hq.dome; hq.domeFlash = Math.max(0, hq.domeFlash - dt * 2); dome.material.uniforms.time.value = G.time;
   hq.domeHitT += dt; const du = dome.material.uniforms;
   du.flash.value = hq.domeHitT < 0.08 ? 1 : 0; du.wob.value = hq.domeHitT < 1 ? Math.exp(-6 * hq.domeHitT) : 0;   // hit flash + wobble

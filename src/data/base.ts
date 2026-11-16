@@ -25,12 +25,13 @@ export const TROOP = {
 export const SAUCER_TIME = [5, 20, 45, 90];
 
 /** Rooms that can be upgraded (levels 1-5) and what a level gives. */
-export type UpRoom = 'hybrid' | 'shipyard' | 'research' | 'storage';
+export type UpRoom = 'hybrid' | 'shipyard' | 'research' | 'storage' | 'armory';
 export const ROOM_UP: Record<UpRoom, { name: string; effect: (lv: number) => string; cost: (lv: number) => Cost; time: (lv: number) => number }> = {
   hybrid:   { name: 'Hybrid Lab', effect: lv => `Trains ${Math.round(speed(lv) * 100)}% speed · queue ${queueSize(lv)}`, cost: lv => sc({ biomass: 40, metal: 30 }, lv), time: lv => [0, 0, 15, 40, 80, 150][lv] },
   shipyard: { name: 'Shipyard', effect: lv => `Builds ${Math.round(speed(lv) * 100)}% speed · queue ${queueSize(lv)}`, cost: lv => sc({ metal: 60, humans: 6 }, lv), time: lv => [0, 0, 20, 50, 100, 180][lv] },
   research: { name: 'Research Lab', effect: lv => `Troops up to level ${Math.min(TROOP.maxLevel, lv + 1)} · research ${Math.round(speed(lv) * 100)}% speed`, cost: lv => sc({ metal: 50, humans: 10 }, lv), time: lv => [0, 0, 25, 60, 120, 200][lv] },
   storage:  { name: 'Cargo Vault', effect: lv => `Daily supply drops +${(lv - 1) * 20}%`, cost: lv => sc({ metal: 40, biomass: 40 }, lv), time: lv => [0, 0, 15, 40, 80, 150][lv] },
+  armory:   { name: 'Armory', effect: lv => `${lv} Orbital Laser and ${lv} EMP charge${lv > 1 ? 's' : ''} per raid`, cost: lv => sc({ metal: 70, humans: 12 }, lv), time: lv => [0, 0, 20, 50, 100, 180][lv] },
 };
 export const ROOM_MAX = 5;
 /** Speed multiplier for a room level (1, 1.25, 1.5 ...). */

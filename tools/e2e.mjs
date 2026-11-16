@@ -116,6 +116,27 @@ try {
     return out;
   });
   errors.push(...v4);
+  // city raids (docs/gdd/city-raids.md): no saucer; pick a troop card and tap the green zone to deploy
+  await sleep(4000);   // let the previous report screen finish appearing, then leave it
+  await page.evaluate(() => { document.getElementById('scr-end').hidden = true; const A = window.__AI, G = A.G; G.save.cities = {}; G.save.army = { clone: 10, brute: 0, saucer: 0, walker: 0 };
+    A.startInvasion({ id: 'kansas-city', name: 'Kansas City', country: 'USA', region: 'us-midwest', lat: 39.1, lon: -94.58, size: 2 }); });
+  await sleep(1500);
+  const before = await page.evaluate(() => ({ units: window.__AI.G.ents.filter(e => e.team === 'alien' && e.utype).length, raid: !document.getElementById('raid').hidden, timer: document.getElementById('rd-timer').textContent }));
+  if (before.units !== 0 || !before.raid || before.timer !== 'SCOUT') errors.push(`a raid should start in scout mode with no troops landed: ${JSON.stringify(before)}`);
+  await page.evaluate(() => { window.__hideOld = setInterval(() => { for (const id of ['scr-end', 'scr-summary', 'meta-modal']) { const e = document.getElementById(id); if (e) e.hidden = true; } }, 100); });   // earlier tests' queued screens
+  await sleep(3000);
+  await page.click('#rd-u-clone');
+  for (const x of [-20, -10, 0, 10, 20]) {
+    const [sx, sy] = await page.evaluate(([x]) => { const v = new (window.__AI.camera.position.constructor)(x, 0, 148).project(window.__AI.camera); return [(v.x * 0.5 + 0.5) * innerWidth, (-v.y * 0.5 + 0.5) * innerHeight]; }, [x]);
+    await page.mouse.click(sx, sy); await sleep(150);
+  }
+  await sleep(800);
+  const after = await page.evaluate(() => ({ units: window.__AI.G.ents.filter(e => e.team === 'alien' && e.utype).length, started: !!window.__AI.G.inv.raidStarted, card: document.querySelector('#rd-u-clone .n').textContent }));
+  if (after.units !== 5 || !after.started || after.card !== '×5') {
+    const dbg = await page.evaluate(() => { const v = new (window.__AI.camera.position.constructor)(0, 0, 165).project(window.__AI.camera); const x = (v.x * 0.5 + 0.5) * innerWidth, y = (-v.y * 0.5 + 0.5) * innerHeight, el = document.elementFromPoint(x, y);
+      return { mode: window.__AI.G.mode, paused: window.__AI.G.paused, at: [Math.round(x), Math.round(y)], el: el ? (el.id || el.className || el.tagName) : null, sel: document.querySelector('.rd-card.sel')?.id }; });
+    errors.push(`tapping the zone should deploy 5 clones and start the clock: ${JSON.stringify(after)} ${JSON.stringify(dbg)}`);
+  }
 } catch (e) { errors.push(String(e)); }
 await browser?.close(); server.kill();
 if (errors.length) { console.error('FAILED:\n' + errors.join('\n')); process.exit(1); }

@@ -122,7 +122,8 @@ missionHooks.summary = (title, html, note, tutorial) => {
   UI.iris(() => { UI.hud(false); UI.hideComm(); UI.show('scr-summary'); }, saucerPoint());
 };
 invasionScene.done = () => writeSave(G.save);
-invasionScene.irisFrom = saucerPoint;
+invasionScene.irisFrom = () => undefined;   // raids: no saucer to close on
+invasionScene.retreat = () => UI.iris(goMoon);
 /** Leave a report screen: the midgame ad (a no-op until ads are enabled) plays while the iris is closed. */
 // CrazyGames pacing: midgame ads only after night 3, and never in a break where a rewarded ad was just watched.
 function betweenMissions(next: () => void, from?: { x: number; y: number }) {
@@ -173,6 +174,7 @@ function wireUI() {
   click('btn-g-ms', () => globeHooks.mothership());
   click('btn-g-menu', () => setPaused(true));
   click('pause-btn', () => setPaused(true));
+  click('rd-pause', () => setPaused(true));
   click('btn-resume', () => setPaused(false));
   click('btn-sound', () => { SFX.setMuted(!SFX.muted); $('btn-sound').textContent = `Sound: ${SFX.muted ? 'off' : 'on'}`; });
   click('btn-quality', () => { setQuality(QUALITY === 'high' ? 'low' : 'high', true); $('btn-quality').textContent = `Graphics: ${QUALITY}`; });

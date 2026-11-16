@@ -51,7 +51,7 @@ export interface BaseState {
   roomLv: Record<UpRoom, number>; unitLv: Record<UnitKey, number>;
 }
 export const newBase = (): BaseState => ({ q: { hybrid: [], shipyard: [] }, qStart: { hybrid: 0, shipyard: 0 }, lab: null, build: null,
-  roomLv: { hybrid: 1, shipyard: 1, research: 1, storage: 1 }, unitLv: { clone: 1, brute: 1, saucer: 1, walker: 1 } });
+  roomLv: { hybrid: 1, shipyard: 1, research: 1, storage: 1, armory: 1 }, unitLv: { clone: 1, brute: 1, saucer: 1, walker: 1 } });
 export const SAVE_VERSION = 5;
 const KEY = 'alien-invasion-save';
 

@@ -22,6 +22,8 @@ export const FXC = {
   fireYellow: new THREE.Color(4, 3.2, 0.8),       // explosion sparks
   fireOrange: new THREE.Color(4, 1.6, 0.4),       // explosion sparks, tank shells
   pistol: new THREE.Color(4, 2.4, 0.6),           // Earth small arms
+  tomato: new THREE.Color(3.4, 0.9, 0.7),         // raid: orbital laser target, bad drop spot
+  mint: new THREE.Color(1, 3, 2.6),               // raid: EMP blast
 };
 
 type Bolt = { pos: Vec3; vel: Vec3; trail: number; width: number; color: THREE.Color };

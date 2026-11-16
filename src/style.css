@@ -1249,3 +1249,51 @@ body.in-moon:has(#tut:not([hidden])) .rs-tip { display: none; }
   .rs-l1 small, .rs-r1 small, .rs-earth small { display: none; }
   .rs-pop-card { width: 96%; max-height: 96%; padding: 10px; } .rs-cards { grid-template-columns: 1fr 1fr; }
 }
+
+/* ================= City raid HUD (docs/gdd/city-raids.md): Clash of Clans style ================= */
+#raid { position: fixed; inset: 0; z-index: 12; pointer-events: none; font-family: var(--font-ui); }
+#raid[hidden] { display: none; }
+#raid > * { position: absolute; pointer-events: auto; }
+.rd-city { left: var(--gut-l); top: var(--gut-t); padding: 8px 14px 9px; border: 3px solid var(--ink); border-radius: 16px; background: var(--grape-700); box-shadow: 0 5px 0 var(--ink); color: #fff; display: grid; gap: 2px; min-width: 170px; }
+.rd-city b { font: 22px/1 var(--font-display); color: var(--poster); text-shadow: 0 2px 0 var(--ink); }
+.rd-city small { font: 600 12px/1.2 var(--font-ui); color: var(--violet-hot); }
+.rd-stars { display: flex; gap: 4px; margin-top: 3px; }
+.rd-stars i { font: 24px/1 var(--font-display); font-style: normal; color: var(--grape-900); -webkit-text-stroke: 2px var(--ink); transition: color .2s; }
+.rd-stars i.on { color: var(--poster); animation: rdStar .5s cubic-bezier(.2,1.8,.4,1); text-shadow: 0 0 10px rgba(255,210,63,.7); }
+@keyframes rdStar { from { transform: scale(2.2) rotate(-30deg); } }
+.rd-mid { left: 50%; top: var(--gut-t); transform: translateX(-50%); display: grid; justify-items: center; gap: 4px; pointer-events: none !important; }
+.rd-timer { padding: 4px 18px 2px; border: 3px solid var(--ink); border-radius: 14px; background: var(--grape-900); box-shadow: 0 4px 0 var(--ink); color: #fff; font: 30px/1 var(--font-display); letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+.rd-timer.low { background: var(--tomato); animation: rdLow .5s ease-in-out infinite alternate; }
+@keyframes rdLow { to { transform: scale(1.08); } }
+.rd-obj { padding: 4px 12px; border-radius: 999px; background: var(--poster); color: var(--ink); border: 2px solid var(--ink); font: 700 13px/1.2 var(--font-ui); box-shadow: 0 3px 0 var(--ink); }
+.rd-right { right: var(--gut-r); top: var(--gut-t); display: flex; gap: 8px; align-items: center; }
+.rd-end { background: linear-gradient(#ff8a80, var(--tomato) 50%, var(--tomato-deep)); color: #fff; text-shadow: 0 2px 0 var(--ink); }
+.rd-hint { left: 50%; top: calc(var(--gut-t) + 86px); transform: translateX(-50%); max-width: min(560px, 90%); padding: 8px 16px; border-radius: 999px; background: rgba(15,8,40,.82); border: 2px solid var(--slime); color: #eaffd0; font: 600 14px/1.3 var(--font-ui); text-align: center; pointer-events: none !important; animation: rdHint 1.6s ease-in-out infinite; }
+.rd-hint[hidden] { display: none; }
+@keyframes rdHint { 50% { box-shadow: 0 0 18px rgba(156,255,63,.5); } }
+.rd-bar { left: 50%; bottom: var(--gut-b); transform: translateX(-50%); display: flex; gap: 8px; align-items: end; padding: 8px 10px 10px; border: 3px solid var(--ink); border-radius: 20px; background: rgba(32,18,74,.92); box-shadow: 0 6px 0 var(--ink); max-width: calc(100% - var(--gut-l) - var(--gut-r)); overflow-x: auto; scrollbar-width: none; }
+.rd-troops, .rd-powers { display: flex; gap: 7px; }
+.rd-sep { width: 3px; align-self: stretch; margin: 6px 2px; border-radius: 2px; background: var(--violet-deep); }
+.rd-card { position: relative; flex: none; width: 82px; height: 98px; display: grid; justify-items: center; align-content: start; gap: 2px; padding: 8px 4px 4px; cursor: pointer;
+  border: 3px solid var(--ink); border-radius: 14px; background: var(--grape-600); color: #fff; box-shadow: 0 4px 0 var(--ink); transition: transform .12s, box-shadow .12s, filter .2s; }
+.rd-card .ic { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; border: 3px solid var(--ink); background: var(--c, var(--violet)); color: var(--ink); font: 20px/1 var(--font-display); box-shadow: inset 0 -4px 0 rgba(0,0,0,.18); }
+.rd-card b { font: 13px/1 var(--font-display); letter-spacing: .02em; }
+.rd-card .n { position: absolute; top: -9px; right: -7px; min-width: 26px; padding: 3px 5px; border-radius: 999px; background: var(--poster); color: var(--ink); border: 2px solid var(--ink); font: 13px/1 var(--font-display); font-style: normal; }
+.rd-card .lv { font: 700 10px/1 var(--font-ui); color: var(--violet-hot); }
+.rd-card kbd { position: absolute; top: 4px; left: 5px; font: 700 10px/1 var(--font-ui); color: var(--dim); background: none; border: 0; padding: 0; }
+body.touch .rd-card kbd { display: none; }
+.rd-card.unit.clone { --c: #bcc4e0; } .rd-card.unit.brute { --c: var(--bubblegum); } .rd-card.unit.saucer { --c: var(--mint); } .rd-card.unit.walker { --c: var(--poster); }
+.rd-card.power { background: var(--grape-700); } .rd-card.power.laser { --c: var(--tomato); } .rd-card.power.emp { --c: var(--mint); } .rd-card.power.rally { --c: var(--violet); }
+.rd-card:hover:not(.empty) { transform: translateY(-3px); }
+.rd-card.sel { transform: translateY(-10px); background: var(--violet-deep); box-shadow: 0 4px 0 var(--ink), 0 0 0 3px var(--slime), 0 0 20px rgba(156,255,63,.55); }
+.rd-card.sel .ic { animation: rdBounce .9s ease-in-out infinite; }
+@keyframes rdBounce { 50% { transform: translateY(-4px) scale(1.06); } }
+.rd-card.empty { filter: saturate(.2) brightness(.65); cursor: not-allowed; }
+@media (max-width: 760px) {
+  .rd-card { width: 64px; height: 82px; padding-top: 6px; } .rd-card .ic { width: 30px; height: 30px; font-size: 16px; } .rd-card b { font-size: 11px; }
+  .rd-bar { gap: 5px; padding: 6px; } .rd-troops, .rd-powers { gap: 5px; }
+  .rd-city { padding: 6px 10px; min-width: 0; } .rd-city b { font-size: 17px; } .rd-city small { display: none; } .rd-stars i { font-size: 19px; }
+  .rd-timer { font-size: 22px; padding: 3px 12px 1px; } .rd-obj { font-size: 11px; max-width: 46vw; text-align: center; }
+  .rd-end { font-size: 13px; padding: .4em .7em; } .rd-hint { top: auto; bottom: calc(var(--gut-b) + 104px); font-size: 12.5px; border-radius: 14px; }
+}
+@media (orientation: portrait) { .rd-mid { top: calc(var(--gut-t) + 62px); } .rd-right { flex-direction: column-reverse; align-items: end; } }

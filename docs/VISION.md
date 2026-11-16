@@ -37,6 +37,6 @@ Clans-style: scout, choose troops, landing edges and powers, then watch the city
 1. **Moon Base** (`docs/gdd/moon-base.md`): the hollow-moon hub replaces the mothership screen. ✅ v0.5.0
 2. **Depth:** research tree, hybrids with traits from abducted specimens, ship classes (scout, hauler, warship,
    carrier), energy from the reactor, the cloak and stealth nights.
-3. **City raids:** Clash of Clans-style scout / plan / deploy with powers from the Armory; the military escalates
-   realistically and some civilians fight back.
+3. **City raids:** Clash of Clans-style scout / plan / deploy with powers from the Armory ✅ v0.7.0 (`docs/gdd/city-raids.md`);
+   still to do: the military escalating more realistically and civilians fighting back.
 4. **Rule or Raze**, more rooms and room upgrades, trophies from every capital.

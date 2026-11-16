@@ -73,6 +73,7 @@ function spawnHeli(x: number, z: number, i: number) {
 function brainHeli(e: Entity, dt: number) {
   e.rotor.rotation.y += dt * 30;
   if (e.hp <= 0) return;
+  if (e.stun > 0) { e.obj.rotation.z = Math.sin(G.time * 12) * 0.2; e.obj.position.copy(e.pos); return; }   // EMP: hovers helplessly
   const I = G.inv, c = I?.center || G.player.pos;
   e.orbit += dt * 0.35;
   const tx = c.x + Math.cos(e.orbit) * H.orbit, tz = c.z - 10 + Math.sin(e.orbit) * H.orbit * 0.8;
@@ -111,7 +112,7 @@ function jetRun() {
 /** Per frame (invasion): jets, searchlights, the odd scream from the crowd. */
 export function updateBattle(dt: number) {
   const I = G.inv; if (!I) return;
-  if (!I.over && (B.jetT -= dt) <= 0) { B.jetT = B.jetEvery * rand(0.8, 1.2); jetRun(); }
+  if (!I.over && !(I.raid && !I.raidStarted) && (B.jetT -= dt) <= 0) { B.jetT = B.jetEvery * rand(0.8, 1.2); jetRun(); }
   for (let i = B.jets.length - 1; i >= 0; i--) {
     const j = B.jets[i]; j.t += dt; j.pos.addScaledVector(j.vel, dt);
     if (Math.random() < dt * 30) FX.smoke(_v1.copy(j.pos).addScaledVector(j.vel, -0.06), 1, 0.8, 0.5, 0.2, false);

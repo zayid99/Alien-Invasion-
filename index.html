@@ -119,11 +119,23 @@
     <div class="wallet" id="moon-wallet"></div>
     <div class="moon-acts"><button class="btn small" id="btn-moon-menu">Save &amp; quit</button><button class="btn primary" id="btn-moon-earth">To Earth</button></div>
   </div>
-  <aside id="moon-panel" class="ms-panel moon-panel" hidden>
-    <nav id="moon-rooms" class="moon-rooms"></nav>
-    <header><div><h3 id="mp-title"></h3><p id="mp-job"></p></div><button class="btn small" id="btn-mp-back">Back</button></header>
-    <div id="mp-body"></div>
-  </aside>
+  <!-- the room screen (docs/ui/room-screen.md): the room plays in the window, controls around it -->
+  <div id="rs" class="rs" hidden>
+    <div class="rs-window"><i class="rs-c tl"></i><i class="rs-c tr"></i><i class="rs-c bl"></i><i class="rs-c br"></i>
+      <div class="rs-cam"><b class="rs-rec"></b><span id="rs-cam">CAM 01</span></div><div class="rs-scan"></div></div>
+    <button class="rs-plate rs-in" id="rs-back" style="--d:0"><span class="rs-arrow">◀</span><span class="rs-nm"><b id="rs-name">Room</b><small id="rs-sub"></small></span></button>
+    <div class="rs-tip rs-in" id="rs-tip" style="--d:2"></div>
+    <div class="rs-res rs-in" id="rs-res" style="--d:1"></div>
+    <button class="rs-btn rs-l1 rs-in" id="rs-map" style="--d:3"><span class="t">MOON MAP</span><small>all rooms</small></button>
+    <div class="rs-l2 rs-in" style="--d:4"><button class="rs-arr" id="rs-prev" aria-label="Previous room">◀</button><span><span class="t">ROOMS</span><small id="rs-pos">1 / 9</small></span><button class="rs-arr" id="rs-next" aria-label="Next room">▶</button></div>
+    <button class="rs-btn rs-r1 rs-in" id="rs-up" style="--d:5"></button>
+    <button class="rs-status rs-in" id="rs-status" style="--d:6"></button>
+    <button class="rs-btn rs-main rs-in" id="rs-main" style="--d:7"></button>
+    <button class="rs-btn rs-b1 rs-in" id="rs-b1" style="--d:8"></button>
+    <button class="rs-btn rs-b2 rs-in" id="rs-b2" style="--d:9"></button>
+    <button class="rs-btn rs-earth rs-in" id="rs-earth" style="--d:10"><span class="t">TO EARTH</span><small>pick a target</small></button>
+    <div class="rs-pop" id="rs-pop" hidden><div class="rs-pop-card"><header><b id="rs-pop-title"></b><button class="rs-pop-x" id="rs-pop-x" aria-label="Close">✕</button></header><div id="rs-pop-body"></div></div></div>
+  </div>
   <p class="moon-hint" id="moon-hint">Tap a room to go inside</p>
 </section>
 

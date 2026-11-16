@@ -21,6 +21,7 @@ import { spawnHuman } from './civilians';
 import { spawnTank, smokeIfWrecked, wreckVehicle, aimNode } from './military';
 import { FLOW_CELL, PYLON_SPOTS, flowField, flowDir, blockedGrid } from './maps/city';
 import { RALLY } from '../data/campaign';
+import { unitStats } from '../game/base';
 
 export const invasionHooks = { onWin: () => {}, onDeploy: () => {}, onBoss: (_name: string) => {} };
 // Earth fire is always orange (§6): small arms HDR (4, 2.4, 0.6), cannons HDR (4, 1.6, 0.4). (PROJ.fire enforces it too.)
@@ -250,9 +251,9 @@ function bossDown(e: Entity) {
 }
 
 // ---------- your army ----------
-const hypnoBrute = (x: number, z: number) => spawnHuman(x, z, 'brute', { team: 'alien', brain: brainUnit, hp: UNIT_TYPES.brute.hp, mini: '#d2b0ff' });
+const hypnoBrute = (x: number, z: number) => spawnHuman(x, z, 'brute', { team: 'alien', brain: brainUnit, hp: unitStats('brute').hp, mini: '#d2b0ff' });
 export function spawnUnit(type: UnitKey, x: number, z: number, drop = false) {
-  const T = UNIT_TYPES[type]; let e: Entity;
+  const T = unitStats(type); let e: Entity;   // troop levels from the Research Lab
   if (type === 'brute') { e = hypnoBrute(x, z); e.r = T.radius; }
   else {
     let obj: THREE.Object3D, legs: THREE.Group[] = null;

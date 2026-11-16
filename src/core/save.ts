@@ -2,6 +2,7 @@
 import type { Wallet, UpgradeKey } from '../data/balance';
 import type { UnitKey } from '../data/units';
 import type { TwistId } from '../data/campaign';
+import type { UpRoom } from '../data/base';
 import { platform } from './platform';
 
 export interface MissionSite {
@@ -39,8 +40,19 @@ export interface SaveData {
   ngPlus: number; ended: boolean;
   /** Today's daily challenge result. */
   challenge: { date: string; score: number; stars: number } | null;
+  /** The Moon Base empire (data/base.ts): training queues, the lab's research job, one room upgrade at a time, levels. */
+  base: BaseState;
 }
-export const SAVE_VERSION = 4;
+export interface BaseJob { start: number; dur: number }
+export interface BaseState {
+  q: { hybrid: UnitKey[]; shipyard: UnitKey[] }; qStart: { hybrid: number; shipyard: number };
+  lab: (BaseJob & { kind: 'troop' | 'saucer'; key: string }) | null;
+  build: (BaseJob & { room: UpRoom }) | null;
+  roomLv: Record<UpRoom, number>; unitLv: Record<UnitKey, number>;
+}
+export const newBase = (): BaseState => ({ q: { hybrid: [], shipyard: [] }, qStart: { hybrid: 0, shipyard: 0 }, lab: null, build: null,
+  roomLv: { hybrid: 1, shipyard: 1, research: 1, storage: 1 }, unitLv: { clone: 1, brute: 1, saucer: 1, walker: 1 } });
+export const SAVE_VERSION = 5;
 const KEY = 'alien-invasion-save';
 
 export function newSave(): SaveData {
@@ -55,7 +67,7 @@ export function newSave(): SaveData {
     catalogue: {}, ach: {},
     daily: { lastClaim: '', streak: 0, completed: 0, mission: null },
     best: { combo: 0, megas: 0, fullHolds: 0, perfect: 0, bosses: 0, nightScore: 0, stars3: 0, drops: 0 },
-    skin: 'classic', skinsSeen: ['classic'], news: [], ngPlus: 0, ended: false, challenge: null,
+    skin: 'classic', skinsSeen: ['classic'], news: [], ngPlus: 0, ended: false, challenge: null, base: newBase(),
   };
 }
 /** Fill in anything a newer version added, so old saves keep working. */
@@ -65,7 +77,8 @@ function migrate(s: any): SaveData | null {
   return { ...d, ...s, v: SAVE_VERSION, tutorial: { ...d.tutorial, ...s.tutorial }, res: { ...d.res, ...s.res }, army: { ...d.army, ...s.army },
     up: { ...d.up, ...s.up }, totals: { ...d.totals, ...s.totals }, regions: s.regions || {}, cities: s.cities || {}, sites: s.sites || [], artifacts: s.artifacts || {},
     catalogue: s.catalogue || {}, ach: s.ach || {}, daily: { ...d.daily, ...s.daily }, best: { ...d.best, ...s.best }, skin: s.skin || 'classic', skinsSeen: s.skinsSeen || ['classic'], news: s.news || [],
-    ngPlus: s.ngPlus || 0, ended: !!s.ended, challenge: s.challenge || null };
+    ngPlus: s.ngPlus || 0, ended: !!s.ended, challenge: s.challenge || null,
+    base: { ...d.base, ...s.base, q: { ...d.base.q, ...s.base?.q }, qStart: { ...d.base.qStart, ...s.base?.qStart }, roomLv: { ...d.base.roomLv, ...s.base?.roomLv }, unitLv: { ...d.base.unitLv, ...s.base?.unitLv } } };
 }
 export function loadSave(): SaveData | null {
   let local: SaveData | null = null, cloud: SaveData | null = null;

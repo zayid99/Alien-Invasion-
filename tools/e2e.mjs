@@ -37,18 +37,20 @@ try {
     await page.click('#btn-sum-next'); await sleep(7000);
     const next = await page.evaluate(() => window.__AI.G.mode);
     if (next !== 'moonbase') errors.push(`expected the Moon Base after training, got "${next}"`);
-    // the Moon Base tutorial: open the Hybrid Lab, build a clone, open the Research Lab, upgrade the beam
+    // the Moon Base tutorial, Clash of Clans style: train a clone, then research a better beam in the lab
     await page.click('#ml-hybrid'); await sleep(1500);
-    const clone = await page.evaluate(() => !document.getElementById('btn-build-clone')?.disabled);
-    if (!clone) errors.push('a Gray Clone should be affordable in the Hybrid Lab right after training');
-    else { await page.click('#btn-build-clone'); await sleep(800); }
-    await page.click('#rb-research'); await sleep(1500);
-    const beam = await page.evaluate(() => !document.querySelector('[data-up="beam"]')?.disabled);
-    if (!beam) errors.push('the beam upgrade should be affordable in the Research Lab right after training');
-    else { await page.click('[data-up="beam"]'); await sleep(800); }
+    const canTrain = await page.evaluate(() => !document.getElementById('rs-main')?.disabled);
+    if (!canTrain) errors.push('training a Gray Clone should be affordable in the Hybrid Lab right after training');
+    else { await page.click('#rs-main'); await sleep(6000); }   // 4 s to train
+    await page.click('#rs-map'); await sleep(1500);
+    await page.click('#ml-research'); await sleep(1500);
+    await page.click('#rs-b1'); await sleep(600);
+    const beam = await page.evaluate(() => !document.getElementById('btn-up-beam')?.disabled);
+    if (!beam) errors.push('researching the beam should be affordable in the Research Lab right after training');
+    else { await page.click('#btn-up-beam'); await sleep(6500); }   // 5 s of research
     const st = await page.evaluate(() => ({ clone: window.__AI.G.save.army.clone, beam: window.__AI.G.save.up.beam }));
-    if (st.clone < 1 || st.beam < 1) errors.push(`Moon Base purchases did not apply: ${JSON.stringify(st)}`);
-    await page.click('#btn-moon-earth'); await sleep(5000);
+    if (st.clone < 1 || st.beam < 1) errors.push(`Moon Base training/research did not complete: ${JSON.stringify(st)}`);
+    await page.click('#rs-earth'); await sleep(5000);
     const g = await page.evaluate(() => window.__AI.G.mode);
     if (g !== 'globe') errors.push(`To Earth should open the globe, got "${g}"`);
   }

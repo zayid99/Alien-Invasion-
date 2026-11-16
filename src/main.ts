@@ -28,8 +28,9 @@ import { deployUnit } from './world/invasion';
 import { refreshSites, armyPower, earthPower, cityLevel, verdict, startNewGamePlus, applyAway } from './game/campaign';
 import { enterTitle, updateTitle } from './scenes/title';
 import { startMission, updateMission, endNight, missionHooks } from './scenes/mission';
-import { buildUnits, buyUpgrade, renderMoonPanel } from './ui/moonPanel';
-import { enterMoonBase, updateMoonBase, syncMoonUI, startMoonTutorial, focusRoom } from './scenes/moonbase';
+import { renderMoonPanel, initRoomScreen, updateRoomScreen, moonHooks } from './ui/roomScreen';
+import { tickBase, baseHooks } from './game/base';
+import { enterMoonBase, updateMoonBase, syncMoonUI, startMoonTutorial, onBaseDone } from './scenes/moonbase';
 import { FINAL } from './data/campaign';
 import { enterGlobe, leaveGlobe, updateGlobe, globeHooks, globeSelection, hideLabels, refreshGlobe, select as selectOnGlobe } from './scenes/globe';
 import { startInvasion, updateInvasion, updateVictory, endInvasion, invasionScene } from './scenes/invasion';
@@ -161,19 +162,12 @@ function wireUI() {
   click('btn-continue', e => { SFX.play('ui'); continueGame(at(e)); });
   click('btn-sum-next', e => { SFX.play('ui'); if (G.save.tutorial.ms < 3 && !G.save.tutorial.done) UI.iris(goMoon, at(e)); else betweenMissions(goGlobe, at(e)); });
   click('btn-sum-ms', e => { SFX.play('ui'); betweenMissions(goMoon, at(e)); });
-  click('mp-body', e => {   // Moon Base room panels
+  click('rs-pop-body', e => {   // the chapter card inside the Bridge's pop-up
     const b = (e.target as HTMLElement).closest('button') as HTMLButtonElement; if (!b || b.disabled) return;
-    if (b.dataset.build) buildUnits(b.dataset.build as UnitKey, +b.dataset.n);
-    else if (b.dataset.up) buyUpgrade(b.dataset.up as UpgradeKey);
-    else if (b.dataset.act === 'earth') { SFX.play('ui'); UI.iris(goGlobe, at(e)); }
-    else if (b.dataset.act === 'catalogue') { SFX.play('ui'); showCatalogue(); }
-    else if (b.dataset.act === 'achievements') { SFX.play('ui'); showAchievements(); }
-    else if (b.dataset.act === 'hangar') { SFX.play('ui'); showHangar(); }
-    else if (b.dataset.act === 'final') globeHooks.invade(FINAL.city as City);
+    if (b.dataset.act === 'final') globeHooks.invade(FINAL.city as City);
     else if (b.dataset.act === 'ngplus') { globeHooks.ngPlus(); renderMoonPanel(); }
     else if (b.dataset.city) { const id = b.dataset.city; SFX.play('ui'); UI.iris(() => { goGlobe(); selectOnGlobe({ type: 'city', id }, true); }, at(e)); }
   });
-  click('btn-mp-back', () => focusRoom(null));
   click('btn-moon-earth', e => { SFX.play('ui'); UI.iris(goGlobe, at(e)); });
   click('btn-moon-menu', e => { SFX.play('ui'); writeSave(G.save); UI.iris(() => { TUT.stop(); enterTitle(); }, at(e)); });
   click('btn-g-ms', () => globeHooks.mothership());
@@ -223,7 +217,7 @@ function step(dt: number) {
     case 'invasion': updateInvasion(dt); break;
     case 'victory': updateVictory(dt); break;
     case 'globe': updateGlobe(dt, G.time); TUT.tick(); break;
-    case 'moonbase': updateMoonBase(dt); TUT.tick(); break;
+    case 'moonbase': updateMoonBase(dt); updateRoomScreen(dt); TUT.tick(); break;
     case 'summary': case 'end': {
       // While the iris closes, the finished night holds still under the old camera (no AI, shots or lifts: the
       // night is over and its cargo already banked); the slow report orbit starts behind the closed iris.
@@ -231,7 +225,7 @@ function step(dt: number) {
       const c = G.player?.pos ?? new THREE.Vector3(), a = G.time * 0.08; camera.position.set(c.x + Math.cos(a) * 70, 45, c.z + Math.sin(a) * 70); camera.lookAt(c.x, 4, c.z); break;
     }
   }
-  syncMoonUI(); FX.update(dt);
+  tickBase(); syncMoonUI(); FX.update(dt);   // the empire's clock runs in every scene
 }
 function tick() {
   const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
@@ -252,7 +246,8 @@ async function boot(data?: { save?: any }) {
   (window as any).__aiBooted = true;
   platform.loadingStart();
   await platform.init(); platform.loadingStart();
-  INPUT.init(); FX.init(); BEAM.init(); portrait.init(); initUFO(); setQuality(QUALITY); wireUI(); initMetaUI();
+  INPUT.init(); FX.init(); BEAM.init(); portrait.init(); initUFO(); setQuality(QUALITY); wireUI(); initMetaUI(); initRoomScreen();
+  moonHooks.earth = () => { if (!UI.irisClosing) { SFX.play('ui'); UI.iris(goGlobe, clickPoint($('rs-earth'))); } }; baseHooks.done = onBaseDone;
   const s = data?.save || loadSave(); if (s) G.save = s;
   // CrazyGames: new players land in gameplay immediately. No save = straight into the training night.
   const firstVisit = !s;

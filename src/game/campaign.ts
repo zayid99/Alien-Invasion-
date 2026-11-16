@@ -6,7 +6,8 @@ import type { City, Region } from '../data/earth';
 import type { MissionSite } from '../core/save';
 import { CFG, RES, earthForces, DEFENDER } from '../data/balance';
 import type { Wallet } from '../data/balance';
-import { UNIT_KEYS, unitPower } from '../data/units';
+import { UNIT_KEYS } from '../data/units';
+import { unitPowerLv } from './base';
 import { clamp, pick, rand, hashString } from '../core/util';
 import { TWISTS, TWIST_IDS, NIGHT, LOSS, OCC, CHAPTERS, FINAL, NGPLUS, RETURN } from '../data/campaign';
 import type { Chapter } from '../data/campaign';
@@ -33,7 +34,7 @@ export function earthPower(L: number) {
   const f = earthForces(L), jets = 120 / f.jetEvery * 2 * DEFENDER.jet.bombs * DEFENDER.jet.dmg / 40;   // bombs dropped in a ~2 min battle, per 40 hp
   return Math.round(f.soldiers * defPower('soldier') + f.tanks * defPower('tank') + f.turrets * defPower('turret') + f.helis * defPower('heli') + jets + (f.pylonHp * 3 + f.hqHp) / 40);
 }
-export function armyPower() { let s = 0; for (const k of UNIT_KEYS) s += G.save.army[k] * unitPower(k); const u = G.save.up; return Math.round(s + 30 + (u.ray + u.shield) * 10); }
+export function armyPower() { let s = 0; for (const k of UNIT_KEYS) s += G.save.army[k] * unitPowerLv(k); const u = G.save.up; return Math.round(s + 30 + (u.ray + u.shield) * 10); }
 export function verdict(us: number, them: number) {
   const r = us / them;
   return r >= 1.25 ? { cls: 'ok', text: 'Victory is likely' } : r >= 0.9 ? { cls: 'uv', text: 'An even fight' } : r >= 0.6 ? { cls: 'hot', text: 'Risky' } : { cls: 'hot', text: 'Earth would crush this army' };

@@ -52,7 +52,8 @@ export function claimDaily() {
   const D = G.save.daily;
   D.streak = D.lastClaim === yesterday() ? D.streak + 1 : 1;
   D.lastClaim = today();
-  const reward = streakReward(D.streak);
+  const base = streakReward(D.streak), k = 1 + 0.2 * ((G.save.base?.roomLv.storage || 1) - 1);   // a bigger Cargo Vault catches more
+  const reward = Object.fromEntries(Object.entries(base).map(([r, v]) => [r, Math.round((v as number) * k)])) as typeof base;
   give(reward); checkAchievements();
   return { streak: D.streak, reward };
 }

@@ -4,8 +4,8 @@
 tester, a Moon Base and saves tester, and a researcher.
 
 **How much to trust this.** The four playtesters were cut off by a usage limit before they wrote their reports, so
-this report is put together from their saved logs and screenshots (about 600 raids, 120 nights, 9 Moon Base test
-scripts). The new-player tester lost most of its notes; only its screenshots survive, so that part is thin. Each
+this report is put together from their saved logs and screenshots (several hundred simulated raids, well over a hundred nights, 9 Moon Base
+test scripts). The new-player tester lost most of its notes; only its screenshots survive, so that part is thin. Each
 finding says whether it was **confirmed in the code** or seen **in the logs only**. Everything was played by scripts in
 a headless browser. No human, and no real phone, has played this build.
 
@@ -132,7 +132,7 @@ and about half without. Landing from the south is clearly the best side; north a
 
 ## 3. Does the game have what makes games hard to put down?
 
-From the researcher's notes (`self-determination theory`, flow, the Hook model, game-feel studies, and the CrazyGames
+From the researcher's notes (self-determination theory, flow, the Hook model, game-feel studies, and the CrazyGames
 and Poki developer guides). **Limit:** the researcher could read sources only through search extracts, not full pages.
 
 | What the research says players need | In the game? | Why |
